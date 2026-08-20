@@ -1,0 +1,22 @@
+node_modules/
+dist/
+dev-dist/
+.vercel/
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# Test fixtures - regenerate with: python samples/make.py
+samples/*.docx
+samples/*.xlsx
+samples/*.pdf
+samples/*.pptx
+samples/*.odt
+samples/*.epub
+samples/*.wav
+
+# Personal documents - never publish
+Converted-Files/
+backup_*/
+android/
+ios/

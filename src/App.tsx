@@ -1,0 +1,1086 @@
+import { platform, type OpenDocument, type OpenResult } from './platform'
+import { basename, confirmDialog, messageDialog, confirmUnsavedDialog } from './lib/dialogs'
+import { isNative, isReadableText } from './shared/formats'
+import MenuBar from './components/MenuBar'
+import LibraryDialog from './components/LibraryDialog'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Toolbar from './components/Toolbar'
+import Preview, { type PreviewHandle } from './components/Preview'
+import Editor, { type EditorHandle } from './components/Editor'
+import Sidebar from './components/Sidebar'
+import FindBar from './components/FindBar'
+import NoteDialog from './components/NoteDialog'
+import AboutDialog from './components/AboutDialog'
+import ConvertDialog from './components/ConvertDialog'
+import AiPanel from './components/AiPanel'
+import DiffDialog from './components/DiffDialog'
+import { installSignature, signatureComment } from './lib/signature'
+import { findQuoteRange } from './lib/aiPrompts'
+import { featureRequestUrl } from './shared/brand'
+import type { Chunk, SourceDoc } from './lib/retrieval'
+import {
+  EMPTY_HISTORY,
+  canRedo,
+  canUndo,
+  record,
+  redo as redoHistory,
+  undo as undoHistory,
+  type HistoryState
+} from './lib/history'
+import { extractHeadings, documentStats, renderMarkdown, standaloneHtml } from './lib/markdown'
+import {
+  applyAnnotation,
+  listAnnotations,
+  removeAnnotation,
+  removeAllAnnotations,
+  updateNote
+} from './lib/annotations'
+import { wrapSelection, prefixLines, insertBlock, TABLE_SNIPPET, toFileUrl } from './lib/editing'
+import { ZOOM_LEVELS, type AnnotationType } from './shared/types'
+import markdownCss from './styles/markdown.css?inline'
+import hljsCss from 'highlight.js/styles/github.css?inline'
+
+const WELCOME = `# Welcome to Suprasūtā Markdown Notes
+
+A fast Markdown **viewer**, **editor** and **annotator** that runs in your browser.
+
+## Quick start
+
+1. Press **Ctrl+O** to open an existing \`.md\` file.
+2. Select any text in view mode to highlight, underline or comment on it.
+3. Press **Ctrl+E** to edit the source, then **Ctrl+S** to save and return to view mode.
+
+> Annotations are written straight into the Markdown file as standard HTML
+> tags, so the file stays a valid \`.md\` you can open anywhere.
+
+| Shortcut | Action |
+| --- | --- |
+| Ctrl+O | Open |
+| Ctrl+S | Save |
+| Ctrl+E | Edit mode |
+| Ctrl+P | Print |
+| Ctrl+F | Find |
+| F1 | All shortcuts |
+`
+
+type Mode = 'view' | 'edit'
+type SidebarMode = 'none' | 'outline' | 'comments'
+type Theme = 'light' | 'dark' | 'system'
+
+export default function App(): React.JSX.Element {
+  const [content, setContent] = useState(WELCOME)
+  const [filePath, setFilePath] = useState<string | null>(null)
+  const [fileName, setFileName] = useState('Untitled')
+  const [dirty, setDirty] = useState(false)
+  const [mode, setMode] = useState<Mode>('view')
+  const [zoom, setZoom] = useState(1)
+  const [theme, setTheme] = useState<Theme>('system')
+  const [systemDark, setSystemDark] = useState(false)
+  const [sidebar, setSidebar] = useState<SidebarMode>('none')
+  const [findOpen, setFindOpen] = useState(false)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [cursor, setCursor] = useState({ line: 1, col: 1 })
+  const [toast, setToast] = useState<string | null>(null)
+  const [showAbout, setShowAbout] = useState(false)
+  const [convertSeed, setConvertSeed] = useState<File[] | null>(null)
+  const [openDoc, setOpenDoc] = useState<OpenDocument | null>(null)
+  const [showLibrary, setShowLibrary] = useState(false)
+  const [appDragging, setAppDragging] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
+  const [extraDocs, setExtraDocs] = useState<SourceDoc[]>([])
+  const [selectionText, setSelectionText] = useState('')
+  const [history, setHistory] = useState<HistoryState>(EMPTY_HISTORY)
+  const [reviewChanges, setReviewChanges] = useState(true)
+  const [pendingDiff, setPendingDiff] = useState<{ next: string; label: string } | null>(null)
+  const [dialog, setDialog] = useState<
+    | { kind: 'newComment'; range: [number, number] }
+    | { kind: 'editNote'; id: string; initial: string }
+    | { kind: 'link'; from: number; to: number }
+    | null
+  >(null)
+
+  const previewRef = useRef<PreviewHandle>(null)
+  const editorRef = useRef<EditorHandle>(null)
+
+  const dark = theme === 'dark' || (theme === 'system' && systemDark)
+  const headings = useMemo(() => extractHeadings(content), [content])
+  const annotations = useMemo(() => listAnnotations(content), [content])
+  const stats = useMemo(() => documentStats(content), [content])
+
+  /* ------------------------------------------------------------- helpers */
+
+  const flash = useCallback((msg: string) => {
+    setToast(msg)
+    window.setTimeout(() => setToast((t) => (t === msg ? null : t)), 2600)
+  }, [])
+
+  const updateContent = useCallback((next: string, markDirty = true) => {
+    setContent(next)
+    if (markDirty) setDirty(true)
+  }, [])
+
+  /**
+   * Applies a change that should be undoable at document level. Typing in the
+   * source editor deliberately does NOT go through here — CodeMirror keeps its
+   * own fine-grained history for that. This covers annotations and AI edits,
+   * which happen outside the editor and would otherwise be irreversible.
+   */
+  const commitContent = useCallback(
+    (next: string, label: string) => {
+      setContent((current) => {
+        if (current === next) return current
+        setHistory((h) => record(h, current, label))
+        return next
+      })
+      setDirty(true)
+    },
+    []
+  )
+
+  const doUndo = useCallback(() => {
+    // In edit mode the source editor owns undo, so keystroke-level history
+    // still works; fall through to document history when it has nothing left.
+    if (mode === 'edit' && editorRef.current?.undo()) return
+    setContent((current) => {
+      const result = undoHistory(history, current)
+      if (!result) {
+        flash('Nothing left to undo.')
+        return current
+      }
+      setHistory(result.state)
+      setDirty(true)
+      flash(`Undid: ${result.label}`)
+      return result.content
+    })
+  }, [flash, history, mode])
+
+  const doRedo = useCallback(() => {
+    if (mode === 'edit' && editorRef.current?.redo()) return
+    setContent((current) => {
+      const result = redoHistory(history, current)
+      if (!result) {
+        flash('Nothing to redo.')
+        return current
+      }
+      setHistory(result.state)
+      setDirty(true)
+      flash(`Redid: ${result.label}`)
+      return result.content
+    })
+  }, [flash, history, mode])
+
+  const loadDocument = useCallback((path: string | null, text: string) => {
+    setContent(text)
+    setFilePath(path)
+    setDirty(false)
+    setMode('view')
+    setActiveId(null)
+    setHistory(EMPTY_HISTORY)
+    setFileName(path ? basename(path) : 'Untitled')
+  }, [])
+
+  /* ------------------------------------------------------------ file ops */
+
+  /**
+   * Handles the three outcomes of opening a path: plain read, "this format
+   * must be converted first", and "this opens but would read better
+   * converted" (indented .txt, whose indentation Markdown treats as code).
+   */
+  const handleOpenResult = useCallback(
+    async (r: OpenResult) => {
+      if (r.canceled) return
+      if (!r.ok) {
+        if (r.error) flash(r.error)
+        return
+      }
+
+      // A file that only needs converting does not replace the open document,
+      // so there is nothing to lose and nothing to ask about.
+      if (r.needsConversion && r.file) {
+        setConvertSeed([r.file])
+        return
+      }
+      if (!r.doc) return
+
+      // Only now, when the current document is about to be replaced, is it
+      // worth interrupting to ask about unsaved changes.
+      if (!(await guardUnsavedRef.current())) return
+
+      setOpenDoc(r.doc)
+      loadDocument(r.doc.name, r.doc.content)
+
+      // Indented lines would be read as code blocks, which stops annotations
+      // rendering — the same trap the desktop version warns about.
+      if (!isNative(r.doc.name) && /^([ ]{4}|\t)\S/m.test(r.doc.content)) {
+        const yes = await confirmDialog({
+          title: 'Convert to Markdown?',
+          message: 'Convert this file to Markdown first?',
+          detail:
+            'This file contains indented lines. Markdown reads indented text as a code block, ' +
+            'which stops highlights and comments from showing up. Converting cleans that up.'
+        })
+        if (yes && r.doc) {
+          setConvertSeed([new File([r.doc.content], r.doc.name, { type: 'text/plain' })])
+        }
+      }
+    },
+    [flash, loadDocument]
+  )
+
+  const doOpen = useCallback(async () => {
+    await handleOpenResult(await platform.openDocument())
+  }, [handleOpenResult])
+
+  const doSave = useCallback(
+    async (saveAs = false): Promise<boolean> => {
+      const current: OpenDocument = openDoc ?? {
+        id: null,
+        name: fileName,
+        content,
+        canSaveInPlace: false
+      }
+      const r = saveAs
+        ? await platform.saveDocumentAs(current, content)
+        : await platform.saveDocument(current, content)
+
+      if (r.canceled) return false
+      if (r.ok && r.doc) {
+        setOpenDoc(r.doc)
+        setFileName(r.doc.name)
+        setDirty(false)
+        setMode('view')
+        flash(
+          r.doc.canSaveInPlace
+            ? `Saved ${r.doc.name}`
+            : `Saved ${r.doc.name} to your documents`
+        )
+        return true
+      }
+      if (r.error) flash(`Could not save: ${r.error}`)
+      return false
+    },
+    [content, fileName, flash, openDoc]
+  )
+
+  const guardUnsaved = useCallback(async (): Promise<boolean> => {
+    if (!dirty) return true
+    const choice = await confirmUnsavedDialog(fileName)
+    if (choice === 'cancel') return false
+    if (choice === 'save') return doSave(false)
+    return true
+  }, [dirty, doSave, fileName])
+
+  const doNew = useCallback(async () => {
+    if (!(await guardUnsaved())) return
+    loadDocument(null, '# Untitled\n\n')
+    setMode('edit')
+  }, [guardUnsaved, loadDocument])
+
+  const buildStandalone = useCallback(
+    (forPrint: boolean) =>
+      signatureComment() +
+      '\n' +
+      standaloneHtml(fileName, renderMarkdown(content), `${markdownCss}\n${hljsCss}`, forPrint),
+    [content, fileName]
+  )
+
+  /* ----------------------------------------------------------- annotate */
+
+  const annotate = useCallback(
+    (type: AnnotationType, color?: string, note?: string, range?: [number, number]) => {
+      const r = range ?? previewRef.current?.getSelectionRange()
+      if (!r) {
+        flash('Select some text in view mode first.')
+        return
+      }
+      const author = undefined
+      const result = applyAnnotation(content, r[0], r[1], { type, color, note, author })
+      if (result.applied === 0) {
+        flash('That selection cannot be annotated (code blocks are skipped).')
+        return
+      }
+      commitContent(result.source, `Add ${type}`)
+      setActiveId(result.id)
+      previewRef.current?.clearSelection()
+    },
+    [commitContent, content, flash]
+  )
+
+  const doRemove = useCallback(
+    (id: string) => {
+      commitContent(removeAnnotation(content, id), 'Remove annotation')
+      setActiveId(null)
+    },
+    [commitContent, content]
+  )
+
+  /* ----------------------------------------------------------------- AI */
+
+  /** Places AI-suggested annotations by locating each quote in the source. */
+  const applyAiAnnotations = useCallback(
+    (items: Array<{ quote: string; type: string; color?: string; note?: string }>) => {
+      let next = content
+      let placed = 0
+      const missed: string[] = []
+
+      // Apply from the end of the document backwards so earlier offsets stay valid.
+      const located = items
+        .map((item) => ({ item, range: findQuoteRange(next, item.quote) }))
+        .filter((entry): entry is { item: typeof entry.item; range: [number, number] } => {
+          if (!entry.range) missed.push(entry.item.quote.slice(0, 40))
+          return entry.range !== null
+        })
+        .sort((a, b) => b.range[0] - a.range[0])
+
+      for (const { item, range } of located) {
+        const result = applyAnnotation(next, range[0], range[1], {
+          type: item.type as AnnotationType,
+          color: item.color,
+          note: item.note,
+          author: 'AI'
+        })
+        if (result.applied > 0) {
+          next = result.source
+          placed++
+        } else {
+          missed.push(item.quote.slice(0, 40))
+        }
+      }
+
+      if (!placed) {
+        flash('None of the suggested passages could be matched in the document.')
+        return
+      }
+      commitContent(next, `AI annotations (${placed})`)
+      setSidebar('comments')
+      flash(
+        missed.length
+          ? `Added ${placed} annotation${placed === 1 ? '' : 's'}; ${missed.length} could not be matched.`
+          : `Added ${placed} annotation${placed === 1 ? '' : 's'}.`
+      )
+    },
+    [commitContent, content, flash]
+  )
+
+  const applyAiRevision = useCallback(
+    (next: string, label: string) => {
+      if (next.trim() === content.trim()) {
+        flash('The AI returned the document unchanged.')
+        return
+      }
+      if (reviewChanges) setPendingDiff({ next, label })
+      else {
+        commitContent(next, label)
+        flash(`${label} applied. Ctrl+Z to undo.`)
+      }
+    },
+    [commitContent, content, flash, reviewChanges]
+  )
+
+  const addContextDocuments = useCallback(async () => {
+    const files = await platform.pickFilesToConvert()
+    const added: SourceDoc[] = []
+    for (const file of files) {
+      if (isReadableText(file.name)) {
+        added.push({ id: file.name, name: file.name, content: await file.text() })
+      } else {
+        flash(`${file.name} must be converted to Markdown first (Ctrl+Shift+M).`)
+      }
+    }
+    if (added.length) {
+      setExtraDocs((docs) => [...docs, ...added.filter((a) => !docs.some((d) => d.id === a.id))])
+      flash(`Added ${added.length} document${added.length === 1 ? '' : 's'} to the AI context.`)
+    }
+  }, [flash])
+
+  const jumpToChunk = useCallback((chunk: Chunk) => {
+    setMode('view')
+    window.setTimeout(() => {
+      const found = previewRef.current?.scrollToText(chunk.text)
+      if (!found) previewRef.current?.scrollToSlug(chunk.heading.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-'))
+    }, 60)
+  }, [])
+
+  /* ----------------------------------------------------- source editing */
+
+  const editorEdit = useCallback(
+    (fn: (text: string, from: number, to: number) => ReturnType<typeof wrapSelection>) => {
+      if (mode !== 'edit' || !editorRef.current) {
+        flash('Switch to Edit mode (Ctrl+E) to use this.')
+        return
+      }
+      const { from, to } = editorRef.current.getSelection()
+      editorRef.current.applyEdit(fn(editorRef.current.getValue(), from, to))
+    },
+    [flash, mode]
+  )
+
+  /* ------------------------------------------------------- menu actions */
+
+  const handleAction = useCallback(
+    async (action: string, payload?: unknown) => {
+      switch (action) {
+        case 'file:new':
+          return doNew()
+        case 'file:open':
+          return doOpen()
+        case 'file:openPath': {
+          // On the web there are no paths; this carries a library document id.
+          const doc = await platform.loadDocument(String(payload))
+          if (doc) {
+            if (!(await guardUnsavedRef.current())) return
+            setOpenDoc(doc)
+            loadDocument(doc.name, doc.content)
+          } else {
+            flash('That document is no longer in your library.')
+          }
+          return
+        }
+        case 'file:library':
+          setShowLibrary(true)
+          return
+        case 'convert:open':
+          setConvertSeed([])
+          return
+        case 'ai:toggle':
+          setAiOpen((v) => !v)
+          return
+        case 'edit:undo':
+          doUndo()
+          return
+        case 'edit:redo':
+          doRedo()
+          return
+        case 'convert:settings':
+          setConvertSeed((s) => s ?? [])
+          return
+        case 'file:save':
+          await doSave(false)
+          return
+        case 'file:saveAs':
+          await doSave(true)
+          return
+        case 'file:export:html': {
+          const base = fileName.replace(/\.[^.]+$/, '')
+          await platform.exportFile(`${base}.html`, buildStandalone(false), 'text/html')
+          flash('HTML downloaded.')
+          return
+        }
+        case 'file:export:pdf':
+          // Browsers have no "save as PDF" API; the print dialog offers it as a
+          // destination, which is the standard way to do this on the web.
+          await platform.print(buildStandalone(true))
+          flash('Choose "Save as PDF" as the destination in the print dialog.')
+          return
+        case 'file:export:clean': {
+          const base = fileName.replace(/\.[^.]+$/, '')
+          await platform.exportFile(`${base}-clean.md`, removeAllAnnotations(content), 'text/markdown')
+          flash('Clean Markdown downloaded.')
+          return
+        }
+        case 'file:print':
+          await platform.print(buildStandalone(true))
+          return
+        case 'edit:find':
+          if (mode === 'view') setFindOpen(true)
+          else editorRef.current?.focus()
+          return
+
+        case 'view:mode:view':
+          setMode('view')
+          return
+        case 'view:mode:edit':
+          setMode('edit')
+          return
+        case 'view:zoom:in':
+          setZoom((z) => ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, ZOOM_LEVELS.findIndex((v) => v >= z) + 1)] ?? z)
+          return
+        case 'view:zoom:out':
+          setZoom((z) => {
+            const i = ZOOM_LEVELS.findIndex((v) => v >= z)
+            return ZOOM_LEVELS[Math.max(0, (i === -1 ? ZOOM_LEVELS.length - 1 : i) - 1)]
+          })
+          return
+        case 'view:zoom:reset':
+          setZoom(1)
+          return
+        case 'view:sidebar:outline':
+          setSidebar((s) => (s === 'outline' ? 'none' : 'outline'))
+          return
+        case 'view:sidebar:comments':
+          setSidebar((s) => (s === 'comments' ? 'none' : 'comments'))
+          return
+        case 'view:theme:light':
+          setTheme('light')
+          return
+        case 'view:theme:dark':
+          setTheme('dark')
+          return
+        case 'view:theme:system':
+          setTheme('system')
+          return
+
+        case 'annot:highlight:yellow':
+          return annotate('highlight', 'yellow')
+        case 'annot:highlight:green':
+          return annotate('highlight', 'green')
+        case 'annot:highlight:blue':
+          return annotate('highlight', 'blue')
+        case 'annot:highlight:pink':
+          return annotate('highlight', 'pink')
+        case 'annot:underline':
+          return annotate('underline')
+        case 'annot:strike':
+          return annotate('strike')
+        case 'annot:bold':
+          return annotate('bold')
+        case 'annot:comment': {
+          const r = previewRef.current?.getSelectionRange()
+          if (!r) {
+            flash('Select some text in view mode first.')
+            return
+          }
+          setDialog({ kind: 'newComment', range: r })
+          return
+        }
+        case 'annot:remove':
+          if (activeId) doRemove(activeId)
+          else flash('Click an annotation first, then remove it.')
+          return
+        case 'annot:clearAll': {
+          const ok = await confirmDialog({
+            title: 'Remove all annotations',
+            message: `Remove all ${annotations.length} annotations from this document?`,
+            detail: 'The underlying text is kept. This can be undone with Ctrl+Z in edit mode only after saving.'
+          })
+          if (ok) {
+            commitContent(removeAllAnnotations(content), 'Remove all annotations')
+            setActiveId(null)
+            flash('All annotations removed.')
+          }
+          return
+        }
+
+        case 'insert:bold':
+          return editorEdit((t, f, to) => wrapSelection(t, f, to, '**'))
+        case 'insert:italic':
+          return editorEdit((t, f, to) => wrapSelection(t, f, to, '*'))
+        case 'insert:code':
+          return editorEdit((t, f, to) => wrapSelection(t, f, to, '`'))
+        case 'insert:strike':
+          return editorEdit((t, f, to) => wrapSelection(t, f, to, '~~'))
+        case 'insert:codeblock':
+          return editorEdit((t, f, to) => {
+            const sel = t.slice(f, to)
+            const block = '```\n' + (sel || 'code here') + '\n```'
+            const needsLead = f > 0 && t[f - 1] !== '\n'
+            const body = (needsLead ? '\n\n' : '') + block + '\n'
+            return { text: t.slice(0, f) + body + t.slice(to), selectionStart: f, selectionEnd: f + body.length }
+          })
+        case 'insert:h1':
+          return editorEdit((t, f, to) => prefixLines(t, f, to, '# '))
+        case 'insert:h2':
+          return editorEdit((t, f, to) => prefixLines(t, f, to, '## '))
+        case 'insert:h3':
+          return editorEdit((t, f, to) => prefixLines(t, f, to, '### '))
+        case 'insert:ul':
+          return editorEdit((t, f, to) => prefixLines(t, f, to, '- '))
+        case 'insert:ol':
+          return editorEdit((t, f, to) => prefixLines(t, f, to, '1. ', true))
+        case 'insert:task':
+          return editorEdit((t, f, to) => prefixLines(t, f, to, '- [ ] '))
+        case 'insert:quote':
+          return editorEdit((t, f, to) => prefixLines(t, f, to, '> '))
+        case 'insert:hr':
+          return editorEdit((t, f, to) => insertBlock(t, f, to, '---'))
+        case 'insert:table':
+          return editorEdit((t, f, to) => insertBlock(t, f, to, TABLE_SNIPPET))
+        case 'insert:link': {
+          if (mode !== 'edit') {
+            flash('Switch to Edit mode (Ctrl+E) to insert a link.')
+            return
+          }
+          const sel = editorRef.current!.getSelection()
+          setDialog({ kind: 'link', from: sel.from, to: sel.to })
+          return
+        }
+        case 'insert:image': {
+          if (mode !== 'edit') {
+            flash('Switch to Edit mode (Ctrl+E) to insert an image.')
+            return
+          }
+          const [image] = await platform.pickFilesToConvert()
+          if (!image) return
+          // A browser cannot reference a local path, so the image is embedded.
+          // That keeps the Markdown self-contained and portable.
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(String(reader.result))
+            reader.readAsDataURL(image)
+          })
+          const alt = image.name.replace(/\.[^.]+$/, '')
+          editorEdit((t, f, to) => {
+            const inserted = `![${alt}](${dataUrl})`
+            return { text: t.slice(0, f) + inserted + t.slice(to), selectionStart: f, selectionEnd: f + inserted.length }
+          })
+          flash('Image embedded in the document.')
+          return
+        }
+
+        case 'help:about':
+          setShowAbout(true)
+          return
+        case 'help:featureVote':
+          platform.openExternal(featureRequestUrl())
+          flash('Opening GitHub — your vote helps decide what gets built next.')
+          return
+        case 'help:shortcuts':
+          await messageDialog({
+            title: 'Keyboard shortcuts',
+            message: 'Suprasūtā Markdown Notes shortcuts',
+            detail: [
+              'Ctrl+N  New          Ctrl+O  Open',
+              'Ctrl+S  Save         Ctrl+Shift+S  Save As',
+              'Ctrl+P  Print        Ctrl+F  Find',
+              'Ctrl+E  Edit mode    Ctrl+Shift+V  View mode',
+              'Ctrl +/-/0  Zoom     Ctrl+Shift+O  Outline',
+              'Ctrl+Shift+C  Annotations panel',
+              '',
+              'Annotate (view mode, with text selected):',
+              'Ctrl+Alt+1..4  Highlight yellow/green/blue/pink',
+              'Ctrl+U  Underline    Ctrl+Shift+X  Strikethrough',
+              'Ctrl+Alt+M  Add comment',
+              'Ctrl+Alt+Backspace  Remove selected annotation'
+            ].join('\n')
+          })
+          return
+      }
+    },
+    [
+      activeId,
+      annotate,
+      annotations.length,
+      buildStandalone,
+      commitContent,
+      content,
+      doNew,
+      doOpen,
+      doRedo,
+      doRemove,
+      doSave,
+      doUndo,
+      editorEdit,
+      fileName,
+      flash,
+      guardUnsaved,
+      handleOpenResult,
+      mode,
+      updateContent
+    ]
+  )
+
+  const actionRef = useRef(handleAction)
+  actionRef.current = handleAction
+
+  /* ------------------------------------------------------------- effects */
+
+  useEffect(() => {
+    platform.getSettings().then((s) => {
+      if (s?.theme) setTheme(s.theme)
+      if (s?.zoom) setZoom(s.zoom)
+      if (typeof s?.aiReviewChanges === 'boolean') setReviewChanges(s.aiReviewChanges)
+    })
+
+    // Track the current selection so the AI panel can explain it.
+    const onSel = (): void => {
+      const text = window.getSelection()?.toString() ?? ''
+      setSelectionText(text.trim().length > 2 ? text.trim() : '')
+    }
+    document.addEventListener('selectionchange', onSel)
+
+    // The desktop build was told about theme changes over IPC; a browser
+    // reports them directly.
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    setSystemDark(media.matches)
+    const onScheme = (e: MediaQueryListEvent): void => setSystemDark(e.matches)
+    media.addEventListener('change', onScheme)
+
+    /**
+     * Keyboard shortcuts.
+     *
+     * These came free from the native menu on Windows. In a browser every one
+     * has to be claimed explicitly, and several (Ctrl+O, Ctrl+S, Ctrl+P) would
+     * otherwise trigger the browser's own behaviour instead of ours.
+     */
+    const onKey = (e: KeyboardEvent): void => {
+      const mod = e.ctrlKey || e.metaKey
+      if (!mod) {
+        if (e.key === 'F1') {
+          e.preventDefault()
+          void actionRef.current('help:shortcuts')
+        }
+        return
+      }
+
+      const key = e.key.toLowerCase()
+      const shift = e.shiftKey
+      const map: Record<string, string> = {
+        n: 'file:new',
+        o: 'file:open',
+        s: shift ? 'file:saveAs' : 'file:save',
+        p: 'file:print',
+        f: 'edit:find',
+        e: 'view:mode:edit',
+        z: shift ? 'edit:redo' : 'edit:undo',
+        y: 'edit:redo',
+        '=': 'view:zoom:in',
+        '+': 'view:zoom:in',
+        '-': 'view:zoom:out',
+        '0': 'view:zoom:reset',
+        m: shift ? 'convert:open' : '',
+        a: shift ? 'ai:toggle' : '',
+        v: shift ? 'view:mode:view' : '',
+        o_shift: 'view:sidebar:outline',
+        c: shift ? 'view:sidebar:comments' : ''
+      }
+
+      let action = shift && key === 'o' ? 'view:sidebar:outline' : map[key]
+      if (shift && key === 'o') action = 'view:sidebar:outline'
+      if (!action) return
+
+      // Never swallow copy, cut, paste or select-all.
+      if (!shift && ['c', 'v', 'x', 'a'].includes(key)) return
+
+      e.preventDefault()
+      void actionRef.current(action)
+    }
+    window.addEventListener('keydown', onKey)
+
+    /** Warn before closing the tab with unsaved work. */
+    const onBeforeUnload = (e: BeforeUnloadEvent): void => {
+      if (dirtyRef.current) {
+        e.preventDefault()
+        e.returnValue = ''
+      }
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+
+    return () => {
+      document.removeEventListener('selectionchange', onSel)
+      media.removeEventListener('change', onScheme)
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('beforeunload', onBeforeUnload)
+    }
+  }, [flash, loadDocument])
+
+  const guardUnsavedRef = useRef(guardUnsaved)
+  guardUnsavedRef.current = guardUnsaved
+  const dirtyRef = useRef(dirty)
+  dirtyRef.current = dirty
+
+  useEffect(() => {
+    installSignature()
+  }, [])
+
+  // Drag a file anywhere onto the window: Markdown opens, anything else is
+  // handed to the converter.
+  useEffect(() => {
+    const stop = (e: DragEvent): void => {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    const onOver = (e: DragEvent): void => {
+      stop(e)
+      if (e.dataTransfer?.types?.includes('Files')) setAppDragging(true)
+    }
+    const onLeave = (e: DragEvent): void => {
+      stop(e)
+      if (e.relatedTarget === null) setAppDragging(false)
+    }
+    const onDrop = (e: DragEvent): void => {
+      stop(e)
+      setAppDragging(false)
+      const files = Array.from(e.dataTransfer?.files ?? [])
+      if (!files.length) return
+      // A single Markdown file opens straight away; anything else is converted.
+      if (files.length === 1 && isNative(files[0].name)) {
+        void (async () => {
+          const file = files[0]
+          if (!(await guardUnsavedRef.current())) return
+          setOpenDoc({ id: null, name: file.name, content: await file.text(), canSaveInPlace: false })
+          loadDocument(file.name, await file.text())
+        })()
+      } else {
+        setConvertSeed(files)
+      }
+    }
+    window.addEventListener('dragover', onOver)
+    window.addEventListener('dragleave', onLeave)
+    window.addEventListener('drop', onDrop)
+    return () => {
+      window.removeEventListener('dragover', onOver)
+      window.removeEventListener('dragleave', onLeave)
+      window.removeEventListener('drop', onDrop)
+    }
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+  }, [dark])
+
+  useEffect(() => {
+    platform.setTitle(fileName, dirty)
+  }, [filePath, dirty])
+
+  useEffect(() => {
+    platform.setSettings({ zoom, theme })
+  }, [zoom, theme])
+
+  // Ctrl + mouse wheel zoom
+  useEffect(() => {
+    function onWheel(e: WheelEvent): void {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+      void actionRef.current(e.deltaY < 0 ? 'view:zoom:in' : 'view:zoom:out')
+    }
+    window.addEventListener('wheel', onWheel, { passive: false })
+    return () => window.removeEventListener('wheel', onWheel)
+  }, [])
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent): void {
+      if (e.key === 'Escape') {
+        if (dialog) setDialog(null)
+        else if (findOpen) setFindOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [dialog, findOpen])
+
+  /* --------------------------------------------------------------- render */
+
+  return (
+    <div className={`app ${dark ? 'dark' : 'light'}`}>
+      <MenuBar onAction={(a) => void actionRef.current(a)} compact={platform.capabilities.touch} />
+
+      <Toolbar
+        mode={mode}
+        zoom={zoom}
+        dirty={dirty}
+        fileName={fileName}
+        sidebar={sidebar}
+        aiOpen={aiOpen}
+        onAction={(a) => void actionRef.current(a)}
+      />
+
+      {findOpen && mode === 'view' && <FindBar onClose={() => setFindOpen(false)} />}
+
+      <main className="workspace">
+        {sidebar !== 'none' && (
+          <Sidebar
+            mode={sidebar}
+            headings={headings}
+            annotations={annotations}
+            activeId={activeId}
+            onClose={() => setSidebar('none')}
+            onPickHeading={(slug) => {
+              setMode('view')
+              window.setTimeout(() => previewRef.current?.scrollToSlug(slug), 30)
+            }}
+            onPickAnnotation={(id) => {
+              setActiveId(id)
+              setMode('view')
+              window.setTimeout(() => previewRef.current?.scrollToAnnotation(id), 30)
+            }}
+            onEditNote={(id) => {
+              const a = annotations.find((x) => x.id === id)
+              setDialog({ kind: 'editNote', id, initial: a?.note ?? '' })
+            }}
+            onRemove={doRemove}
+          />
+        )}
+
+        <section className="stage">
+          {mode === 'view' ? (
+            <Preview
+              ref={previewRef}
+              source={content}
+              zoom={zoom}
+              activeAnnotation={activeId}
+              onAnnotate={(type, color) => annotate(type, color)}
+              onComment={() => void actionRef.current('annot:comment')}
+              onRemoveAnnotation={doRemove}
+              onSelectAnnotation={setActiveId}
+              onEditAnnotationNote={(id) => {
+                const a = annotations.find((x) => x.id === id)
+                setDialog({ kind: 'editNote', id, initial: a?.note ?? '' })
+              }}
+            />
+          ) : (
+            <div className="edit-split">
+              <Editor
+                ref={editorRef}
+                value={content}
+                dark={dark}
+                zoom={zoom}
+                onChange={(v) => updateContent(v)}
+                onCursor={(line, col) => setCursor({ line, col })}
+                onFormat={(action) => void actionRef.current(action)}
+              />
+              <div className="live-preview">
+                <article
+                  className="markdown-body"
+                  style={{ fontSize: `${zoom * 15}px` }}
+                  dangerouslySetInnerHTML={{ __html: renderMarkdown(content) }}
+                />
+              </div>
+            </div>
+          )}
+        </section>
+
+        {aiOpen && (
+          <AiPanel
+            docName={fileName}
+            docContent={content}
+            extraDocs={extraDocs}
+            selection={selectionText}
+            onClose={() => setAiOpen(false)}
+            onAddDocuments={addContextDocuments}
+            onRemoveDocument={(id) => setExtraDocs((docs) => docs.filter((d) => d.id !== id))}
+            onJumpToChunk={jumpToChunk}
+            onApplyRevision={applyAiRevision}
+            onApplyAnnotations={applyAiAnnotations}
+            onToast={flash}
+          />
+        )}
+      </main>
+
+      <footer className="statusbar" data-mn-ignore>
+        <span>{mode === 'view' ? 'View mode' : `Edit mode · Ln ${cursor.line}, Col ${cursor.col}`}</span>
+        <span>{stats.words} words</span>
+        <span>{stats.chars} chars</span>
+        <span>{annotations.length} annotations</span>
+        <span>~{stats.readMin} min read</span>
+        <span className="grow" />
+        <span>{dirty ? 'Unsaved changes' : 'Saved'}</span>
+        <span>{Math.round(zoom * 100)}%</span>
+      </footer>
+
+      {toast && (
+        <div className="toast" data-mn-ignore>
+          {toast}
+        </div>
+      )}
+
+      {appDragging && (
+        <div className="drop-overlay" data-mn-ignore>
+          <div className="drop-card">
+            <div className="dz-icon">⤓</div>
+            <strong>Drop to open or convert</strong>
+            <span className="muted small">Markdown opens directly · other formats go to the converter</span>
+          </div>
+        </div>
+      )}
+
+      {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
+
+      {showLibrary && (
+        <LibraryDialog
+          onClose={() => setShowLibrary(false)}
+          onToast={flash}
+          onOpen={(id) => {
+            setShowLibrary(false)
+            void actionRef.current('file:openPath', id)
+          }}
+        />
+      )}
+
+      {pendingDiff && (
+        <DiffDialog
+          title={`Review ${pendingDiff.label.toLowerCase()}`}
+          before={content}
+          after={pendingDiff.next}
+          reviewDefault={reviewChanges}
+          onCancel={() => setPendingDiff(null)}
+          onApply={(skipReview) => {
+            commitContent(pendingDiff.next, pendingDiff.label)
+            if (skipReview) {
+              setReviewChanges(false)
+              void platform.setSettings({ aiReviewChanges: false })
+            }
+            setPendingDiff(null)
+            flash(`${pendingDiff.label} applied. Ctrl+Z to undo.`)
+          }}
+        />
+      )}
+
+      {convertSeed !== null && (
+        <ConvertDialog
+          initialFiles={convertSeed}
+          onClose={() => setConvertSeed(null)}
+          onToast={flash}
+          onOpenResult={(name: string, markdown: string) => {
+            setConvertSeed(null)
+            // The converted document is not yet a file anywhere; open it as an
+            // unsaved document so the user chooses where it goes.
+            setOpenDoc({
+              id: null,
+              name: name.replace(/\.[^.]+$/, '') + '.md',
+              content: markdown,
+              canSaveInPlace: false
+            })
+            loadDocument(name.replace(/\.[^.]+$/, '') + '.md', markdown)
+            setDirty(true)
+          }}
+        />
+      )}
+
+      {dialog?.kind === 'newComment' && (
+        <NoteDialog
+          title="Add comment"
+          initial=""
+          onCancel={() => setDialog(null)}
+          onSave={(value) => {
+            setDialog(null)
+            if (value) annotate('comment', undefined, value, dialog.range)
+          }}
+        />
+      )}
+
+      {dialog?.kind === 'editNote' && (
+        <NoteDialog
+          title="Edit comment"
+          initial={dialog.initial}
+          onCancel={() => setDialog(null)}
+          onSave={(value) => {
+            updateContent(updateNote(content, dialog.id, value))
+            setDialog(null)
+          }}
+        />
+      )}
+
+      {dialog?.kind === 'link' && (
+        <NoteDialog
+          title="Insert link"
+          initial=""
+          placeholder="https://example.com"
+          onCancel={() => setDialog(null)}
+          onSave={(url) => {
+            const { from, to } = dialog
+            setDialog(null)
+            if (!url) return
+            editorEdit((t, f, tt) => {
+              const label = t.slice(f, tt) || 'link'
+              const inserted = `[${label}](${url})`
+              return { text: t.slice(0, f) + inserted + t.slice(tt), selectionStart: f, selectionEnd: f + inserted.length }
+            })
+            void from
+            void to
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
