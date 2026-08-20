@@ -19,7 +19,7 @@ export const LINKEDIN_URL = 'https://www.linkedin.com/in/narashimank/'
 export const LICENCE_NOTE = 'Free for personal use. Not licensed for commercial use.'
 export const TAGLINE = 'Markdown viewer, editor, annotator and AI reading companion'
 
-export const REPO_URL = 'https://github.com/Narashiman-K/Markdown-Notes-windows'
+export const REPO_URL = 'https://github.com/Narashiman-K/Markdown-Notes-web'
 
 /**
  * Opens a pre-filled GitHub issue so interest in the planned repo-to-docs
