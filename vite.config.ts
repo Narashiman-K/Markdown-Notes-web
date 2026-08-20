@@ -27,7 +27,26 @@ export default defineConfig({
         // The document libraries are large; raise the precache ceiling so the
         // app genuinely works offline rather than half-caching.
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
-        globPatterns: ['**/*.{js,css,html,woff2,png,svg,wasm}']
+        globPatterns: ['**/*.{js,css,html,woff2,png,svg,wasm}'],
+
+        // The OCR engine and language model are ~6.7 MB and most people never
+        // touch offline OCR. Precaching them would charge every visitor that
+        // download on first load, so they are excluded here and cached at
+        // runtime instead, the first time OCR actually runs.
+        globIgnores: ['**/tesseract/**'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/tesseract\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'tesseract-engine',
+              // Immutable build output: once fetched there is no reason to
+              // revalidate, and a year is as close to "never" as this allows.
+              expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          }
+        ]
       }
     })
   ],

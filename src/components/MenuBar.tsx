@@ -1,6 +1,6 @@
 import { platform } from '../platform'
 import { useEffect, useRef, useState } from 'react'
-import { REPO_URL, featureRequestUrl } from '../shared/brand'
+import { PRIVACY_URL, REPO_URL, featureRequestUrl } from '../shared/brand'
 
 /**
  * In-app menu bar.
@@ -124,6 +124,7 @@ const MENUS: Menu[] = [
       { separator: true, label: '' },
       { label: 'Request a feature', action: 'help:featureVote' },
       { label: 'Project on GitHub', href: REPO_URL },
+      { label: 'Privacy policy', href: PRIVACY_URL },
       { separator: true, label: '' },
       { label: 'About', action: 'help:about' }
     ]

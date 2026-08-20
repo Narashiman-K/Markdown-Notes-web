@@ -22,6 +22,13 @@ export const TAGLINE = 'Markdown viewer, editor, annotator and AI reading compan
 export const REPO_URL = 'https://github.com/Narashiman-K/Markdown-Notes-web'
 
 /**
+ * Absolute rather than relative, because the Android build loads from a local
+ * asset origin where `/privacy.html` would not resolve, and because Google Play
+ * requires a publicly reachable URL for the same document.
+ */
+export const PRIVACY_URL = 'https://markdown-notes-psi.vercel.app/privacy.html'
+
+/**
  * Opens a pre-filled GitHub issue so interest in the planned repo-to-docs
  * feature can actually be counted, rather than guessed at.
  */

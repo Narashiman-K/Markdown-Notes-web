@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy Policy — Suprasūtā Markdown Notes</title>
+    <meta
+      name="description"
+      content="How Suprasūtā Markdown Notes handles your data: it does not collect any."
+    />
+    <link rel="icon" href="/favicon.svg" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #1a1a1a;
+        --muted: #5c5c5c;
+        --rule: #e2e2e2;
+        --accent: #7a1f1f;
+        --panel: #f7f7f5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #171717;
+          --fg: #e8e8e8;
+          --muted: #a0a0a0;
+          --rule: #333;
+          --accent: #d98b8b;
+          --panel: #1f1f1f;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        padding: 48px 20px 96px;
+      }
+      main { max-width: 720px; margin: 0 auto; }
+      h1 { font-size: 1.9rem; line-height: 1.25; margin: 0 0 4px; }
+      h2 { font-size: 1.15rem; margin: 40px 0 10px; padding-top: 18px; border-top: 1px solid var(--rule); }
+      h3 { font-size: 1rem; margin: 24px 0 6px; }
+      .sub { color: var(--muted); margin: 0 0 8px; }
+      .lede {
+        background: var(--panel);
+        border-left: 3px solid var(--accent);
+        padding: 16px 18px;
+        margin: 28px 0 0;
+        border-radius: 0 6px 6px 0;
+      }
+      table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 0.94rem; }
+      th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+      th { font-weight: 600; }
+      code { background: var(--panel); padding: 1px 5px; border-radius: 4px; font-size: 0.88em; }
+      a { color: var(--accent); }
+      ul { padding-left: 20px; }
+      li { margin: 5px 0; }
+      footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 0.88rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Privacy Policy</h1>
+      <p class="sub">
+        Suprasūtā Markdown Notes — web application and Android app.<br />
+        Last updated 20 August 2026.
+      </p>
+
+      <p class="lede">
+        <strong>This application does not collect your data.</strong> There is no
+        account, no sign-in, no analytics, no advertising and no tracking of any
+        kind. Your documents, your annotations and your settings stay on your own
+        device. Nothing is uploaded unless you deliberately switch on one of the
+        optional features described below, using an API key you supply yourself.
+      </p>
+
+      <h2>Who is responsible</h2>
+      <p>
+        This application is made by Narashiman Krishnamurthy as an independent,
+        non-commercial project. For the purposes of the UK GDPR and the EU GDPR,
+        he is the data controller for the very limited processing described here.
+      </p>
+      <p>Contact: <strong>[CONTACT EMAIL]</strong></p>
+
+      <h2>What stays on your device</h2>
+      <p>
+        The following never leave your device and are never transmitted to us,
+        because there is no server of ours to transmit them to:
+      </p>
+      <ul>
+        <li>The documents you open, create, edit or convert</li>
+        <li>Annotations — highlights, underlines, strikethrough and comments</li>
+        <li>Your in-app document library, held in the browser's IndexedDB storage</li>
+        <li>Settings such as theme, zoom level and your chosen AI provider</li>
+        <li>Any API keys you enter</li>
+      </ul>
+      <p>
+        Document conversion — PDF, Word, Excel, PowerPoint, ODT, ODS, EPUB, CSV
+        and plain text — runs entirely inside the application. Files are never
+        uploaded for conversion. The same is true of offline OCR: the recognition
+        engine and its English language model are served from this application
+        itself, so reading text out of an image works with no network connection
+        and the image never leaves your device.
+      </p>
+
+      <h3>How API keys are stored</h3>
+      <p>
+        Keys are encrypted with AES-GCM before storage, using a key that the
+        browser is instructed never to reveal to JavaScript, held in IndexedDB.
+        This means a key cannot simply be read out of storage or scraped by most
+        browser extensions.
+      </p>
+      <p>
+        We would rather be accurate than reassuring, so: this is not equivalent
+        to operating-system-level protection. Script running on this exact origin
+        can still ask the browser to decrypt on its behalf. It is a real
+        improvement over storing keys as plain text, and it is not a guarantee
+        against a compromised device.
+      </p>
+
+      <h2>Optional features that use the network</h2>
+      <p>
+        Each of these is off until you enable it and provide your own API key.
+        When you use one, your request goes to that provider under your own
+        account, governed by that provider's terms and privacy policy — not ours.
+        We receive no copy of it.
+      </p>
+
+      <table>
+        <thead>
+          <tr><th>Feature</th><th>What is sent</th><th>To whom</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>AI assistant</td>
+            <td>Your question, plus excerpts from the documents you have loaded</td>
+            <td>Anthropic, OpenAI or Google — whichever you choose</td>
+          </tr>
+          <tr>
+            <td>Image OCR (cloud mode)</td>
+            <td>The image you are converting</td>
+            <td>Google</td>
+          </tr>
+          <tr>
+            <td>Audio transcription</td>
+            <td>The audio file you are converting</td>
+            <td>AssemblyAI</td>
+          </tr>
+          <tr>
+            <td>Local AI (Ollama)</td>
+            <td>Your question and document excerpts</td>
+            <td>Nobody — a model running on your own computer</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>The two relay endpoints</h3>
+      <p>
+        OpenAI and AssemblyAI refuse requests made directly from a web page, so
+        those two features pass through small relay endpoints at
+        <code>/api/openai</code> and <code>/api/assemblyai</code> on this site.
+      </p>
+      <p>
+        They are deliberately minimal and their source is public. They
+        <strong>do not store your API key, do not log it, do not log your
+        content, and keep no state</strong>: the request arrives, it is forwarded
+        to the provider, the response is returned, and nothing is retained.
+        Anthropic and Google are contacted directly from your browser and do not
+        involve these endpoints at all. You can read the code at
+        <a href="https://github.com/Narashiman-K/Markdown-Notes-web/tree/main/api">github.com/Narashiman-K/Markdown-Notes-web</a>.
+      </p>
+
+      <h2>Web server logs</h2>
+      <p>
+        The web version is hosted on Vercel. Like any web host, Vercel records
+        standard technical request information — IP address, timestamp, the file
+        requested and the browser's user-agent string — for delivery, security
+        and abuse prevention. This is ordinary web-server logging, it is not
+        linked to any identity by us, and we do not use it for analytics or
+        profiling.
+      </p>
+      <p>
+        The Android app is served no pages from anywhere: it is installed on your
+        phone and its content is bundled inside the app, so it generates no such
+        logs.
+      </p>
+
+      <h2>Cookies</h2>
+      <p>
+        This application sets no cookies and uses no third-party scripts,
+        embedded fonts or content delivery networks. Browser storage — IndexedDB,
+        local storage and the service-worker cache — is used only to keep the
+        application working offline and to remember your own documents and
+        settings on your own device.
+      </p>
+
+      <h2>Children</h2>
+      <p>
+        This application is a general-purpose document tool. It is not directed
+        at children and collects no personal information from anyone, including
+        children.
+      </p>
+
+      <h2>Your rights under the GDPR</h2>
+      <p>
+        The GDPR gives you rights of access, rectification, erasure, restriction,
+        portability and objection in respect of personal data held about you.
+      </p>
+      <p>
+        In this case those rights are unusually simple to exercise, because we
+        hold nothing about you. There is no account to close and no record to
+        request. Everything the application holds is on your own device and under
+        your own control:
+      </p>
+      <ul>
+        <li><strong>Export:</strong> save any document to a file at any time.</li>
+        <li>
+          <strong>Erase:</strong> clear the site data for this application in your
+          browser settings, or uninstall the Android app. That removes your
+          library, your settings and your stored API keys permanently.
+        </li>
+      </ul>
+      <p>
+        If you have used one of the optional cloud features, the provider you
+        chose may hold a record of that request under your own account with them.
+        Requests about that data need to go to that provider directly, since it
+        is held under your account and not ours.
+      </p>
+      <p>
+        You have the right to complain to a supervisory authority. In the UK that
+        is the Information Commissioner's Office (ico.org.uk); in the EU it is
+        the authority for your country of residence.
+      </p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        If this policy changes, the revised version will be published on this page
+        with a new date at the top. Material changes to what the application does
+        with data will also be noted in the app's release notes.
+      </p>
+
+      <footer>
+        Suprasūtā Markdown Notes ·
+        <a href="/">Open the app</a> ·
+        <a href="https://github.com/Narashiman-K/Markdown-Notes-web">Source code</a>
+      </footer>
+    </main>
+  </body>
+</html>

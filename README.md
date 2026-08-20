@@ -38,8 +38,12 @@ with your own API key:
 | Feature | Where data goes |
 | --- | --- |
 | AI assistant | Anthropic, OpenAI or Google — your choice, your key |
-| Image OCR | Google, or entirely offline in the browser |
+| Image OCR | Google, or entirely offline |
 | Audio transcription | AssemblyAI (the only feature that cannot run offline) |
+
+Offline OCR really is offline: `scripts/tesseract-assets.mjs` stages the
+recognition engine and English model into the build, so nothing is fetched from
+a CDN at first use. Full policy: **[privacy.html](https://markdown-notes-psi.vercel.app/privacy.html)**.
 
 **API keys** are encrypted with AES-GCM using a key the browser will not let
 JavaScript read, stored in IndexedDB. That stops keys being copied out of
@@ -94,6 +98,11 @@ app works with no connection at all.
 
 The APK is built by GitHub Actions, because their runners already have the
 Android SDK and a JDK. Push, then download `android-apk` from the Actions tab.
+
+Pushing a `v*` tag instead runs the `release` job, which produces a **signed
+AAB** for Google Play. See **[docs/PLAY-STORE.md](docs/PLAY-STORE.md)** for the
+keystore, the secrets it needs, the store listing copy and the Data Safety
+answers.
 
 To build locally instead, with Android Studio installed:
 

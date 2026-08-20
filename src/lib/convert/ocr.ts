@@ -6,9 +6,10 @@
  *   cloud   — Google Gemini via an injected callback. Better accuracy, and it
  *             can describe charts and diagrams, not just transcribe text.
  *             Needs the user's own API key; the image is sent to Google.
- *   offline — Tesseract.js, bundled. No key, no network, nothing leaves the
- *             machine. Good on clean printed text, weak on anything else, and
- *             it cannot describe visual structure at all.
+ *   offline — Tesseract.js, with its engine and language model served from the
+ *             app itself. No key, no network, nothing leaves the machine. Good
+ *             on clean printed text, weak on anything else, and it cannot
+ *             describe visual structure at all.
  *
  * Tesseract is imported lazily so its several megabytes of WASM only load if
  * the user actually chooses offline OCR.
@@ -48,6 +49,26 @@ async function toPngIfNeeded(bytes: Uint8Array, fileName: string): Promise<Blob>
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b ?? blob), 'image/png'))
 }
 
+/**
+ * Points tesseract.js at the copies of its worker, engine and language model
+ * that `scripts/tesseract-assets.mjs` stages into the build.
+ *
+ * Left to its own devices, tesseract.js fetches all three from jsdelivr on
+ * first use. That makes "offline" OCR fail with no signal — the exact case it
+ * exists for — and puts a third party in the request path. These paths are
+ * relative to the app's own origin, and on Android they resolve inside the APK.
+ */
+function localPaths(): { workerPath: string; corePath: string; langPath: string } {
+  const base = new URL('tesseract/', document.baseURI).href
+  return {
+    workerPath: `${base}worker.min.js`,
+    // A directory: tesseract.js appends the core filename itself after probing
+    // for SIMD support, so both variants must be present.
+    corePath: base,
+    langPath: base
+  }
+}
+
 async function offlineOcr(
   bytes: Uint8Array,
   fileName: string,
@@ -56,11 +77,21 @@ async function offlineOcr(
   onProgress?.('Loading the offline OCR engine…', 0.1)
   const { createWorker } = await import('tesseract.js')
 
-  const worker = await createWorker('eng', 1, {
-    logger: (m: { status?: string; progress?: number }) => {
-      if (m.status === 'recognizing text') onProgress?.('Reading text from the image…', 0.3 + (m.progress ?? 0) * 0.7)
-    }
-  })
+  const logger = (m: { status?: string; progress?: number }): void => {
+    if (m.status === 'recognizing text') onProgress?.('Reading text from the image…', 0.3 + (m.progress ?? 0) * 0.7)
+  }
+
+  // Falls back to the library's own defaults if the bundled copies cannot be
+  // loaded — a stale service worker cache, say, or a device that rejects the
+  // WASM build. Degrading to a CDN fetch is better than refusing to work, and
+  // the image still never leaves the device either way.
+  let worker
+  try {
+    worker = await createWorker('eng', 1, { ...localPaths(), logger })
+  } catch (err) {
+    console.warn('Bundled Tesseract engine unavailable, falling back to the CDN.', err)
+    worker = await createWorker('eng', 1, { logger })
+  }
 
   try {
     const image = await toPngIfNeeded(bytes, fileName)
