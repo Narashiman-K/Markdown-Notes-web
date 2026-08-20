@@ -107,6 +107,15 @@ npx cap open android
 `android/` is generated, not committed — it derives entirely from
 `capacitor.config.ts` and the built web app.
 
+### Why Android lives in this repo
+
+Capacitor has no source of its own: it wraps the `dist/` produced by the web
+build. Only two files here exist solely for Android — `capacitor.config.ts` and
+`src/platform/capacitor.ts`, about 100 lines between them — and the second is a
+subclass of `WebPlatform` that belongs beside it. A separate repository would
+hold those hundred lines plus a submodule or published package to reach the web
+build, adding a sync step for no isolation gained.
+
 ## Architecture
 
 Everything platform-specific sits behind one interface, so the same components
