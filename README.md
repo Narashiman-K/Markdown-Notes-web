@@ -96,13 +96,17 @@ computer, so mobile users need a cloud key.
 The web build is wrapped with Capacitor and bundled inside the package, so the
 app works with no connection at all.
 
-The APK is built by GitHub Actions, because their runners already have the
-Android SDK and a JDK. Push, then download `android-apk` from the Actions tab.
+**Google Play is not a current target.** A personal developer account cannot
+publish to production without 12 testers staying opted in for 14 continuous
+days, which is not realistic for a one-person project. Android users are served
+by the PWA instead: open the site in Chrome and choose *Install app*, and it
+lands on the home screen and works offline, with no store involved.
 
-Pushing a `v*` tag instead runs the `release` job, which produces a **signed
-AAB** for Google Play. See **[docs/PLAY-STORE.md](docs/PLAY-STORE.md)** for the
-keystore, the secrets it needs, the store listing copy and the Data Safety
-answers.
+The Android build is kept and kept working, but it no longer runs on every push.
+Trigger it from the Actions tab with **Run workflow** to get a debug APK, or
+push a `v*` tag to get a **signed AAB**. Should Play ever become worthwhile,
+**[docs/PLAY-STORE.md](docs/PLAY-STORE.md)** has the keystore steps, the secrets,
+the listing copy and the Data Safety answers ready to go.
 
 To build locally instead, with Android Studio installed:
 

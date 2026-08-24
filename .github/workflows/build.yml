@@ -54,8 +54,25 @@ jobs:
           name: web-build
           path: dist
 
+  # ---------------------------------------------------------------------------
+  # Debug APK, for installing on a device or emulator.
+  #
+  # Deliberately NOT run on every push. Google Play was dropped as a target in
+  # August 2026 — a personal developer account cannot reach production without
+  # 12 testers staying opted in for 14 days, which is not workable for a
+  # one-person project, and Google's developer verification will curtail plain
+  # sideloading from late 2026 in any case. Android users are served by the PWA,
+  # which installs to the home screen from the browser.
+  #
+  # The build is kept, and kept working, because reviving it is then one click
+  # rather than a rewrite. Running it on every commit would install a JDK and
+  # the whole Android SDK to produce an artifact nobody downloads.
+  #
+  # Run it from the Actions tab via "Run workflow" when you actually want an APK.
+  # ---------------------------------------------------------------------------
   android:
     needs: test
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
