@@ -1,7 +1,7 @@
 import { platform } from '../platform'
 import logoMark from '../assets/logo-mark.png'
 import { AUTHOR, LINKEDIN_URL, SIGNATURE } from '../lib/signature'
-import { APP_DISPLAY_NAME, TAGLINE, REPO_URL } from '../shared/brand'
+import { APP_DISPLAY_NAME, TAGLINE, REPO_URL, MS_STORE_URL } from '../shared/brand'
 
 interface Props {
   onClose: () => void
@@ -32,6 +32,19 @@ export default function AboutDialog({ onClose }: Props): React.JSX.Element {
 
           <p>
             Please do comment and give it <strong>5 stars</strong> if you like it. Thanks!
+          </p>
+
+          <p>
+            Prefer a desktop app?{' '}
+            <a
+              href={MS_STORE_URL}
+              onClick={(e) => {
+                e.preventDefault()
+                platform.openExternal(MS_STORE_URL)
+              }}
+            >
+              Get it for Windows on the Microsoft Store
+            </a>
           </p>
 
           <p>

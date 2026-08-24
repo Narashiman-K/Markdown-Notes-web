@@ -6,8 +6,9 @@
 
 ### → [markdown-notes-psi.vercel.app](https://markdown-notes-psi.vercel.app)
 
-The browser and Android version of
-[Suprasūtā Markdown Notes for Windows](https://github.com/Narashiman-K/Markdown-Notes-windows).
+The browser version of Suprasūtā Markdown Notes, also available
+[for Windows on the Microsoft Store](https://apps.microsoft.com/detail/9N1S7QP2WNLX)
+([source](https://github.com/Narashiman-K/Markdown-Notes-windows)).
 
 Created by **[Narashiman Krishnamurthy](https://www.linkedin.com/in/narashimank/)**
 

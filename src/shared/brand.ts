@@ -29,6 +29,14 @@ export const REPO_URL = 'https://github.com/Narashiman-K/Markdown-Notes-web'
 export const PRIVACY_URL = 'https://markdown-notes-psi.vercel.app/privacy.html'
 
 /**
+ * The Windows build in the Microsoft Store, live since 24 August 2026.
+ * Deliberately without the `ocid`/`hl`/`gl` tracking parameters the Store's
+ * share button appends — those pin the page to one locale and tag the visit as
+ * coming from a share, neither of which is wanted from inside the app.
+ */
+export const MS_STORE_URL = 'https://apps.microsoft.com/detail/9N1S7QP2WNLX'
+
+/**
  * Opens a pre-filled GitHub issue so interest in the planned repo-to-docs
  * feature can actually be counted, rather than guessed at.
  */
