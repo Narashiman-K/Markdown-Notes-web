@@ -1,6 +1,6 @@
 <div align="center">
 
-# Suprasūtā Markdown Notes — Web & Mobile
+# Suprasūtā Markdown Notes — Web
 
 **Read, annotate and convert documents in your browser. Nothing leaves your device.**
 
@@ -94,53 +94,27 @@ computer, so mobile users need a cloud key.
 
 ## Android
 
-The web build is wrapped with Capacitor and bundled inside the package, so the
-app works with no connection at all.
+The Android build lives in its own repository:
+**[Markdown-Notes-Android](https://github.com/Narashiman-K/Markdown-Notes-Android)**.
 
-**Google Play is not a current target.** A personal developer account cannot
-publish to production without 12 testers staying opted in for 14 continuous
-days, which is not realistic for a one-person project. Android users are served
-by the PWA instead: open the site in Chrome and choose *Install app*, and it
-lands on the home screen and works offline, with no store involved.
-
-The Android build is kept and kept working, but it no longer runs on every push.
-Trigger it from the Actions tab with **Run workflow** to get a debug APK, or
-push a `v*` tag to get a **signed AAB**. Should Play ever become worthwhile,
-**[docs/PLAY-STORE.md](docs/PLAY-STORE.md)** has the keystore steps, the secrets,
-the listing copy and the Data Safety answers ready to go.
-
-To build locally instead, with Android Studio installed:
-
-```bash
-npx vite build
-npx cap add android
-npx cap sync android
-npx cap open android
-```
-
-`android/` is generated, not committed — it derives entirely from
-`capacitor.config.ts` and the built web app.
-
-### Why Android lives in this repo
-
-Capacitor has no source of its own: it wraps the `dist/` produced by the web
-build. Only two files here exist solely for Android — `capacitor.config.ts` and
-`src/platform/capacitor.ts`, about 100 lines between them — and the second is a
-subclass of `WebPlatform` that belongs beside it. A separate repository would
-hold those hundred lines plus a submodule or published package to reach the web
-build, adding a sync step for no isolation gained.
+It is a separate codebase rather than a build target of this one, so nothing
+here carries Capacitor, an Android toolchain or Play Store paperwork. Android
+users can also simply install this site: open it in Chrome and choose
+*Install app*, and it runs from the home screen, offline, with no store
+involved.
 
 ## Architecture
 
-Everything platform-specific sits behind one interface, so the same components
-run in a browser, in an Android WebView, and previously in Electron:
+Everything platform-specific sits behind one interface. Only `web.ts` exists
+here, but the contract is deliberately the same one the Windows and Android
+builds implement, so a component moves between them as a copy rather than a
+rewrite:
 
 ```
 src/
   platform/
     types.ts      the contract
     web.ts        browsers — File System Access API, IndexedDB, fetch
-    capacitor.ts  Android — native filesystem and share sheet
     secrets.ts    AES-GCM key storage
   lib/            ported unchanged from the Windows app
     annotations.ts, align.ts, retrieval.ts, aiPrompts.ts, diff.ts, history.ts

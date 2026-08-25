@@ -2,7 +2,7 @@
   "name": "suprasuta-markdown-notes-web",
   "productName": "Suprasuta Markdown Notes",
   "version": "1.0.0",
-  "description": "Markdown viewer, editor, annotator and document converter for the browser and mobile",
+  "description": "Markdown viewer, editor, annotator and document converter for the browser",
   "author": {
     "name": "Narashiman Krishnamurthy",
     "email": "anishiman123@gmail.com"

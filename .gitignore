@@ -18,7 +18,5 @@ samples/*.wav
 # Personal documents - never publish
 Converted-Files/
 backup_*/
-android/
-ios/
 # Staged from node_modules by scripts/tesseract-assets.mjs on every build.
 public/tesseract/

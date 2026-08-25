@@ -1,21 +1,15 @@
 /**
- * Chooses the right platform implementation and exposes it as a singleton.
+ * Exposes the browser platform implementation as a singleton.
  *
- * Components import `platform` from here and never care which one they got.
- * When the Capacitor build lands it will slot in below without touching a
- * single component.
+ * Components import `platform` from here and never touch a browser API
+ * directly. That indirection is what let the same components run under
+ * Electron, and it is what lets the Android build in the separate
+ * Markdown-Notes-Android repository substitute its own implementation without
+ * changing a single component.
  */
 import { WebPlatform } from './web'
-import { CapacitorPlatform } from './capacitor'
 import type { Platform } from './types'
 
 export * from './types'
 
-function detect(): Platform {
-  // Capacitor injects this global into the native WebView.
-  const native = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-  if (native?.isNativePlatform?.()) return new CapacitorPlatform()
-  return new WebPlatform()
-}
-
-export const platform: Platform = detect()
+export const platform: Platform = new WebPlatform()

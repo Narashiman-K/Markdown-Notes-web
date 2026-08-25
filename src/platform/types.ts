@@ -6,9 +6,13 @@
  * components and everything in `lib/` know nothing about browsers, Electron or
  * Capacitor — they only know this.
  *
- * Implementations:
+ * Implementation:
  *   web.ts        browsers, using File System Access API where available
- *   capacitor.ts  Android, overriding file handling with native storage
+ *
+ * The interface is kept deliberately wider than this one implementation needs.
+ * It is the same contract the Electron desktop build and the Android build in
+ * the separate Markdown-Notes-Android repository are written against, so
+ * porting a component between them stays a copy rather than a rewrite.
  */
 
 /** A document the app currently has open. */
@@ -81,7 +85,7 @@ export interface Capabilities {
   localAi: boolean
   /** Serverless proxy deployed, so OpenAI and audio transcription work. */
   proxy: boolean
-  /** Running inside a Capacitor native shell rather than a plain browser. */
+  /** Running inside a native shell rather than a plain browser. Always false here. */
   native: boolean
   touch: boolean
 }
