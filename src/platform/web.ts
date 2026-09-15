@@ -43,7 +43,14 @@ const FALLBACK_MODELS: Record<ProviderId, string[]> = {
   ollama: [],
   anthropic: ['claude-sonnet-4-5', 'claude-opus-4-5', 'claude-haiku-4-5'],
   openai: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4o'],
-  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash']
+  /*
+   * Verified against the live API on 2026-09-16. The 2.5 names that used to be
+   * here now return 404 "no longer available to new users" — they still appear
+   * in the models list, so listing them looked safe and was not. Aliases are
+   * preferred because they cannot rot; gemini-pro-latest is quota-limited on a
+   * free key but works on a paid one.
+   */
+  gemini: ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-flash-lite-latest', 'gemini-pro-latest']
 }
 
 /* ------------------------------------------------------------- utilities */
@@ -439,7 +446,9 @@ export class WebPlatform implements Platform {
     for (const b of bytes) binary += String.fromCharCode(b)
     const base64 = btoa(binary)
 
-    for (const model of ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-flash-latest']) {
+    // Alias first: pinned names go away, and a shipped app cannot chase them.
+    // gemini-2.0-flash was already returning 404 by September 2026.
+    for (const model of ['gemini-flash-latest', 'gemini-3.8-flash']) {
       const r = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
         {
