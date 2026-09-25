@@ -36,6 +36,7 @@ import {
   updateNote
 } from './lib/annotations'
 import { wrapSelection, prefixLines, insertBlock, TABLE_SNIPPET, toFileUrl } from './lib/editing'
+import { DEFAULT_BLOCK_TINTS, type BlockKind } from './lib/blockTints'
 import { ZOOM_LEVELS, type AnnotationType } from './shared/types'
 import markdownCss from './styles/markdown.css?inline'
 import hljsCss from 'highlight.js/styles/github.css?inline'
@@ -76,6 +77,7 @@ export default function App(): React.JSX.Element {
   const [zoom, setZoom] = useState(1)
   const [theme, setTheme] = useState<Theme>('system')
   const [systemDark, setSystemDark] = useState(false)
+  const [blockTints, setBlockTints] = useState<BlockKind[]>(() => [...DEFAULT_BLOCK_TINTS])
   const [sidebar, setSidebar] = useState<SidebarMode>('none')
   const [findOpen, setFindOpen] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -103,6 +105,19 @@ export default function App(): React.JSX.Element {
   const editorRef = useRef<EditorHandle>(null)
 
   const dark = theme === 'dark' || (theme === 'system' && systemDark)
+
+  /*
+   * Block tints are read once at startup. A stored value from before this
+   * setting existed is undefined rather than an empty array, and those mean
+   * opposite things — "never chose" versus "chose none" — so the fallback is
+   * only applied when the field is genuinely absent.
+   */
+  useEffect(() => {
+    platform
+      .getSettings()
+      .then((s) => setBlockTints(s.blockTints ?? [...DEFAULT_BLOCK_TINTS]))
+      .catch(() => undefined)
+  }, [])
   const headings = useMemo(() => extractHeadings(content), [content])
   const annotations = useMemo(() => listAnnotations(content), [content])
   const stats = useMemo(() => documentStats(content), [content])
@@ -927,6 +942,7 @@ export default function App(): React.JSX.Element {
                 onChange={(v) => updateContent(v)}
                 onCursor={(line, col) => setCursor({ line, col })}
                 onFormat={(action) => void actionRef.current(action)}
+                blockTintKinds={blockTints}
               />
               <div className="live-preview">
                 <article

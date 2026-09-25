@@ -68,6 +68,8 @@ export interface ChatResponse {
   code?: string
 }
 
+import type { BlockKind } from '../lib/blockTints'
+
 export interface Settings {
   theme: 'light' | 'dark' | 'system'
   zoom: number
@@ -76,6 +78,11 @@ export interface Settings {
   aiReviewChanges: boolean
   convertOpenAfter: 'ask' | 'always' | 'never'
   lastDocumentId: string | null
+  /**
+   * Markdown blocks that get a background tint in the editor, so you can see
+   * where each one starts and ends. Empty array switches tinting off.
+   */
+  blockTints: BlockKind[]
 }
 
 export interface Capabilities {
