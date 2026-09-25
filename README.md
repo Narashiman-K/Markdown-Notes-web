@@ -94,14 +94,16 @@ computer, so mobile users need a cloud key.
 
 ## Android
 
-The Android build lives in its own repository:
-**[Markdown-Notes-Android](https://github.com/Narashiman-K/Markdown-Notes-Android)**.
+**Install this site instead.** Open it in Chrome and choose *Install app*: it
+runs from the home screen, works offline, and updates itself. No store, no
+account, no permissions to grant.
 
-It is a separate codebase rather than a build target of this one, so nothing
-here carries Capacitor, an Android toolchain or Play Store paperwork. Android
-users can also simply install this site: open it in Chrome and choose
-*Install app*, and it runs from the home screen, offline, with no store
-involved.
+There is an older native build at
+[Markdown-Notes-Android](https://github.com/Narashiman-K/Markdown-Notes-Android),
+but it is no longer maintained. Google Play requires fourteen testers over
+fourteen days before a personal developer account may publish, which is not
+something a single author can arrange honestly, and the installed web app does
+the same job without any of it.
 
 ## Architecture
 
