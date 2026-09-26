@@ -173,6 +173,22 @@ button.tb.accent { color: var(--accent); font-weight: 700; }
   overflow: hidden;
   border-right: 1px solid var(--chrome-border);
 }
+
+/*
+ * Keep the find-and-replace panel underneath the application chrome.
+ *
+ * CodeMirror ships `.cm-panels` at z-index 300, which is sensible for an
+ * editor embedded in a plain page but puts the search panel above this app's
+ * menubar (60) and its dropdowns (70), so an open panel covered any menu you
+ * opened. The desktop build never showed this because its menus are native
+ * Electron menus drawn by the operating system, outside the web content
+ * entirely; only the browser has the two competing in one stacking context.
+ *
+ * 50 keeps the panel above the document and below every piece of chrome.
+ */
+.cm-panels {
+  z-index: 50;
+}
 .live-preview {
   overflow: auto;
   background: var(--bg);
