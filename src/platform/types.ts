@@ -69,6 +69,7 @@ export interface ChatResponse {
 }
 
 import type { BlockKind } from '../lib/blockTints'
+import type { ReaderSettings } from '../lib/reader'
 
 export interface Settings {
   theme: 'light' | 'dark' | 'system'
@@ -83,6 +84,8 @@ export interface Settings {
    * where each one starts and ends. Empty array switches tinting off.
    */
   blockTints: BlockKind[]
+  /** Reading preferences: measure, text size, line spacing and palette. */
+  reader: ReaderSettings
 }
 
 export interface Capabilities {

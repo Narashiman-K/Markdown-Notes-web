@@ -26,6 +26,7 @@ import type {
 import { idbGet, idbSet, idbDelete, idbKeys, sealSecret, openSecret, SECRET_STORE_NAME } from './secrets'
 import { isConvertible, isReadableText } from '../shared/formats'
 import { DEFAULT_BLOCK_TINTS } from '../lib/blockTints'
+import { DEFAULT_READER } from '../lib/reader'
 
 const OLLAMA = 'http://127.0.0.1:11434'
 const PROXY = '/api'
@@ -38,7 +39,8 @@ const DEFAULT_SETTINGS: Settings = {
   aiReviewChanges: true,
   convertOpenAfter: 'ask',
   lastDocumentId: null,
-  blockTints: [...DEFAULT_BLOCK_TINTS]
+  blockTints: [...DEFAULT_BLOCK_TINTS],
+  reader: { ...DEFAULT_READER }
 }
 
 const FALLBACK_MODELS: Record<ProviderId, string[]> = {

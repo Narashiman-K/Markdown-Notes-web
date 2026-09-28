@@ -57,6 +57,7 @@ const MENUS: Menu[] = [
     items: [
       { label: 'View mode', action: 'view:mode:view', accelerator: 'Ctrl+Shift+V' },
       { label: 'Edit mode', action: 'view:mode:edit', accelerator: 'Ctrl+E' },
+      { label: 'Reader mode', action: 'view:reader', accelerator: 'Ctrl+Shift+R' },
       { separator: true, label: '' },
       { label: 'Zoom in', action: 'view:zoom:in', accelerator: 'Ctrl+=' },
       { label: 'Zoom out', action: 'view:zoom:out', accelerator: 'Ctrl+-' },
