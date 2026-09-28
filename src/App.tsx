@@ -15,7 +15,7 @@ import ConvertDialog from './components/ConvertDialog'
 import AiPanel from './components/AiPanel'
 import DiffDialog from './components/DiffDialog'
 import { installSignature, signatureComment } from './lib/signature'
-import { findQuoteRange } from './lib/aiPrompts'
+import { findQuoteRange, type AiMode } from './lib/aiPrompts'
 import { featureRequestUrl } from './shared/brand'
 import type { Chunk, SourceDoc } from './lib/retrieval'
 import {
@@ -113,6 +113,9 @@ export default function App(): React.JSX.Element {
   const [showLibrary, setShowLibrary] = useState(false)
   const [appDragging, setAppDragging] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
+  // A quick action chosen from the AI menu, waiting for the panel to pick it
+  // up. Null whenever there is nothing outstanding.
+  const [pendingQuick, setPendingQuick] = useState<AiMode | null>(null)
   const [extraDocs, setExtraDocs] = useState<SourceDoc[]>([])
   const [selectionText, setSelectionText] = useState('')
   const [history, setHistory] = useState<HistoryState>(EMPTY_HISTORY)
@@ -565,6 +568,19 @@ export default function App(): React.JSX.Element {
           return
         case 'ai:toggle':
           setAiOpen((v) => !v)
+          return
+        case 'ai:quick:summarise':
+        case 'ai:quick:compare':
+        case 'ai:quick:explain':
+        case 'ai:quick:annotate':
+          /*
+           * Open the panel and hand it the action. Opening is unconditional
+           * rather than a toggle: choosing "Summarise" from a menu is a request
+           * to see the answer, and toggling would close the panel it is about
+           * to write into.
+           */
+          setAiOpen(true)
+          setPendingQuick(action.slice('ai:quick:'.length) as AiMode)
           return
         case 'edit:undo':
           doUndo()
@@ -1151,6 +1167,8 @@ export default function App(): React.JSX.Element {
             onApplyRevision={applyAiRevision}
             onApplyAnnotations={applyAiAnnotations}
             onToast={flash}
+            pendingQuick={pendingQuick}
+            onQuickHandled={() => setPendingQuick(null)}
           />
         )}
       </main>

@@ -121,6 +121,13 @@ const MENUS: Menu[] = [
     items: [
       { label: 'Ask your documents', action: 'ai:toggle', accelerator: 'Ctrl+Shift+A' },
       { separator: true, label: '' },
+      // Also chips inside the panel. `ai:quick:*` opens the panel and runs the
+      // matching action, so these work whether or not it is already open.
+      { label: 'Summarise', action: 'ai:quick:summarise' },
+      { label: 'Compare documents', action: 'ai:quick:compare' },
+      { label: 'Explain selection', action: 'ai:quick:explain' },
+      { label: 'Suggest annotations', action: 'ai:quick:annotate' },
+      { separator: true, label: '' },
       { label: 'Coming soon: documentation from a code project…', action: 'help:featureVote' }
     ]
   },
