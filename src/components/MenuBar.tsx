@@ -49,6 +49,12 @@ const MENUS: Menu[] = [
       { label: 'Undo', action: 'edit:undo', accelerator: 'Ctrl+Z' },
       { label: 'Redo', action: 'edit:redo', accelerator: 'Ctrl+Y' },
       { separator: true, label: '' },
+      { separator: true, label: '' },
+      { label: 'Cut', action: 'edit:cut', accelerator: 'Ctrl+X' },
+      { label: 'Copy', action: 'edit:copy', accelerator: 'Ctrl+C' },
+      { label: 'Paste', action: 'edit:paste', accelerator: 'Ctrl+V' },
+      { label: 'Select all', action: 'edit:selectAll', accelerator: 'Ctrl+A' },
+      { separator: true, label: '' },
       { label: 'Find…', action: 'edit:find', accelerator: 'Ctrl+F' }
     ]
   },
@@ -171,7 +177,13 @@ export default function MenuBar({ onAction, compact }: Props): React.JSX.Element
         item.separator ? (
           <div key={i} className="menu-sep" />
         ) : (
-          <button key={i} className="menu-item" role="menuitem" onClick={() => run(item)}>
+          <button
+            key={i}
+            className="menu-item"
+            role="menuitem"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => run(item)}
+          >
             <span>{item.label}</span>
             {item.accelerator && <span className="menu-accel">{item.accelerator}</span>}
           </button>
@@ -184,7 +196,12 @@ export default function MenuBar({ onAction, compact }: Props): React.JSX.Element
   if (compact) {
     return (
       <div className="menubar compact" ref={ref}>
-        <button className="menu-title" onClick={() => setOpen(open ? null : 'all')} aria-label="Menu">
+        <button
+          className="menu-title"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setOpen(open ? null : 'all')}
+          aria-label="Menu"
+        >
           ☰
         </button>
         {open && (
@@ -195,7 +212,13 @@ export default function MenuBar({ onAction, compact }: Props): React.JSX.Element
                 {menu.items
                   .filter((i) => !i.separator)
                   .map((item, i) => (
-                    <button key={i} className="menu-item" role="menuitem" onClick={() => run(item)}>
+                    <button
+            key={i}
+            className="menu-item"
+            role="menuitem"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => run(item)}
+          >
                       <span>{item.label}</span>
                     </button>
                   ))}
@@ -213,6 +236,12 @@ export default function MenuBar({ onAction, compact }: Props): React.JSX.Element
         <div key={menu.label} className="menu-root">
           <button
             className={`menu-title${open === menu.label ? ' on' : ''}`}
+            /*
+             * Never take focus. Cut, paste and select all act on whatever is
+             * focused, and clicking a menu button would move focus to the
+             * button, leaving the caret behind.
+             */
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => setOpen(open === menu.label ? null : menu.label)}
             onMouseEnter={() => open && setOpen(menu.label)}
           >

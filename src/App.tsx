@@ -602,6 +602,37 @@ export default function App(): React.JSX.Element {
         case 'file:print':
           await platform.print(buildStandalone(true))
           return
+        /*
+         * The browser has no menu roles, so these are implemented here.
+         * Select all has to know about the editor: the document-wide command
+         * would select the page rather than the source being edited.
+         */
+        case 'edit:selectAll':
+          if (mode === 'edit') editorRef.current?.selectAll()
+          else document.execCommand('selectAll')
+          return
+
+        case 'edit:cut':
+        case 'edit:copy':
+          document.execCommand(action === 'edit:cut' ? 'cut' : 'copy')
+          return
+
+        case 'edit:paste':
+          /*
+           * Chromium refuses document.execCommand('paste'), so the clipboard
+           * is read through the async API. It needs a secure context and the
+           * user's permission, and can be refused - in which case nothing
+           * happens rather than something wrong.
+           */
+          try {
+            const text = await navigator.clipboard.readText()
+            if (text && mode === 'edit') editorRef.current?.insertText(text)
+            else if (text) flash('Switch to edit mode to paste')
+          } catch {
+            flash('Your browser blocked reading the clipboard. Use Ctrl+V.')
+          }
+          return
+
         case 'edit:find':
           if (mode === 'view') setFindOpen(true)
           else editorRef.current?.focus()
