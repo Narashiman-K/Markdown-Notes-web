@@ -63,8 +63,8 @@ const MENUS: Menu[] = [
       { label: 'Zoom out', action: 'view:zoom:out', accelerator: 'Ctrl+-' },
       { label: 'Reset zoom', action: 'view:zoom:reset', accelerator: 'Ctrl+0' },
       { separator: true, label: '' },
-      { label: 'Outline', action: 'view:sidebar:outline', accelerator: 'Ctrl+Shift+O' },
-      { label: 'Annotations', action: 'view:sidebar:comments', accelerator: 'Ctrl+Shift+C' },
+      { label: 'Outline panel', action: 'view:sidebar:outline', accelerator: 'Ctrl+Shift+O' },
+      { label: 'Annotations panel', action: 'view:sidebar:comments', accelerator: 'Ctrl+Shift+C' },
       { separator: true, label: '' },
       { label: 'Light theme', action: 'view:theme:light' },
       { label: 'Dark theme', action: 'view:theme:dark' },
@@ -105,6 +105,7 @@ const MENUS: Menu[] = [
       { label: 'Strikethrough', action: 'annot:strike' },
       { label: 'Add comment…', action: 'annot:comment' },
       { separator: true, label: '' },
+      { label: 'Bold emphasis', action: 'annot:bold', accelerator: 'Ctrl+Alt+B' },
       { label: 'Remove selected annotation', action: 'annot:remove' },
       { label: 'Remove all annotations…', action: 'annot:clearAll' }
     ]
