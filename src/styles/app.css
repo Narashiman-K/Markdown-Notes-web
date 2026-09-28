@@ -909,8 +909,10 @@ html[data-theme='dark'] .ok-text { color: #6bd396; }
   border: none;
   color: var(--fg);
   font: inherit;
-  font-size: 13px;
-  padding: 6px 11px;
+  /* Raised from 13px. The bar was hard to read and a small target to hit,
+     and it is the one piece of chrome that is always on screen. */
+  font-size: 17px;
+  padding: 9px 14px;
   cursor: pointer;
   border-radius: 4px;
   white-space: nowrap;
@@ -937,15 +939,15 @@ html[data-theme='dark'] .ok-text { color: #6bd396; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 28px;
   width: 100%;
   background: none;
   border: none;
   color: var(--fg);
   font: inherit;
-  font-size: 13px;
+  font-size: 16px;
   text-align: left;
-  padding: 6px 10px;
+  padding: 9px 13px;
   border-radius: 4px;
   cursor: pointer;
   white-space: nowrap;
@@ -953,12 +955,12 @@ html[data-theme='dark'] .ok-text { color: #6bd396; }
 .menu-item:hover { background: var(--accent); color: #fff; }
 .menu-item:hover .menu-accel { color: rgba(255, 255, 255, 0.75); }
 
-.menu-accel { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.menu-accel { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
 
-.menu-sep { height: 1px; background: var(--chrome-border); margin: 5px 8px; }
+.menu-sep { height: 1px; background: var(--chrome-border); margin: 6px 8px; }
 
 .menu-group-label {
-  font-size: 11px;
+  font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--muted);
