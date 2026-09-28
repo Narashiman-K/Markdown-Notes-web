@@ -855,7 +855,21 @@ export default function App(): React.JSX.Element {
     const onKey = (e: KeyboardEvent): void => {
       const mod = e.ctrlKey || e.metaKey
       if (!mod) {
-        if (e.key === 'F1') {
+        /*
+       * F9, not Ctrl+Shift+R.
+       *
+       * Ctrl+Shift+R is the browser's hard-reload shortcut and is swallowed
+       * before the page ever sees it, so reader mode was unreachable by
+       * keyboard in the browser build. F9 is free in both, and the two builds
+       * should not disagree about a shortcut.
+       */
+      if (e.key === 'F9') {
+        e.preventDefault()
+        void actionRef.current('view:reader')
+        return
+      }
+
+      if (e.key === 'F1') {
           e.preventDefault()
           void actionRef.current('help:shortcuts')
         }
@@ -871,7 +885,6 @@ export default function App(): React.JSX.Element {
         p: 'file:print',
         f: 'edit:find',
         e: 'view:mode:edit',
-        r: shift ? 'view:reader' : '',
         z: shift ? 'edit:redo' : 'edit:undo',
         y: 'edit:redo',
         '=': 'view:zoom:in',
