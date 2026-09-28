@@ -1031,6 +1031,7 @@ export default function App(): React.JSX.Element {
 
       <Toolbar
         mode={mode}
+        readerOn={readerOn}
         zoom={zoom}
         dirty={dirty}
         fileName={fileName}
@@ -1073,6 +1074,7 @@ export default function App(): React.JSX.Element {
               source={content}
               zoom={zoom}
               activeAnnotation={activeId}
+              readerMode={readerOn}
               onAnnotate={(type, color) => annotate(type, color)}
               onComment={() => void actionRef.current('annot:comment')}
               onRemoveAnnotation={doRemove}
