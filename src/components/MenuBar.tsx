@@ -39,6 +39,7 @@ const MENUS: Menu[] = [
       { label: 'Export without annotations…', action: 'file:export:clean' },
       { separator: true, label: '' },
       { label: 'Convert to Markdown…', action: 'convert:open', accelerator: 'Ctrl+Shift+M' },
+      { label: 'Merge files…', action: 'file:merge' },
       { separator: true, label: '' },
       { label: 'Print…', action: 'file:print', accelerator: 'Ctrl+P' }
     ]

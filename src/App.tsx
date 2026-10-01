@@ -12,6 +12,7 @@ import FindBar from './components/FindBar'
 import NoteDialog from './components/NoteDialog'
 import AboutDialog from './components/AboutDialog'
 import ConvertDialog from './components/ConvertDialog'
+import MergeDialog from './components/MergeDialog'
 import AiPanel from './components/AiPanel'
 import DiffDialog from './components/DiffDialog'
 import { installSignature, signatureComment } from './lib/signature'
@@ -109,6 +110,7 @@ export default function App(): React.JSX.Element {
   const [toast, setToast] = useState<string | null>(null)
   const [showAbout, setShowAbout] = useState(false)
   const [convertSeed, setConvertSeed] = useState<File[] | null>(null)
+  const [mergeOpen, setMergeOpen] = useState(false)
   const [openDoc, setOpenDoc] = useState<OpenDocument | null>(null)
   const [showLibrary, setShowLibrary] = useState(false)
   const [appDragging, setAppDragging] = useState(false)
@@ -565,6 +567,9 @@ export default function App(): React.JSX.Element {
           return
         case 'convert:open':
           setConvertSeed([])
+          return
+        case 'file:merge':
+          setMergeOpen(true)
           return
         case 'ai:toggle':
           setAiOpen((v) => !v)
@@ -1232,12 +1237,36 @@ export default function App(): React.JSX.Element {
         />
       )}
 
+      {mergeOpen && (
+        <MergeDialog
+          current={content.trim() ? { name: fileName, markdown: content } : null}
+          pickFiles={async () =>
+            (await platform.pickFilesToConvert()).map((file) => ({ name: file.name, read: () => platform.readBytes(file) }))
+          }
+          onClose={() => setMergeOpen(false)}
+          onMerged={async (markdown, title) => {
+            // The merged result replaces the open document, so unsaved work
+            // gets the usual save-or-discard question first.
+            if (!(await guardUnsaved())) return
+            setMergeOpen(false)
+            const name = `${title}.md`
+            setOpenDoc({ id: null, name, content: markdown, canSaveInPlace: false })
+            loadDocument(name, markdown)
+            setDirty(true)
+            flash('Files merged into a new document. Save it to keep it (Ctrl+S).')
+          }}
+        />
+      )}
+
       {convertSeed !== null && (
         <ConvertDialog
           initialFiles={convertSeed}
           onClose={() => setConvertSeed(null)}
           onToast={flash}
-          onOpenResult={(name: string, markdown: string) => {
+          onOpenResult={async (name: string, markdown: string) => {
+            // This replaces the open document, so unsaved work is offered a
+            // save first. It used to be replaced without asking.
+            if (!(await guardUnsaved())) return
             setConvertSeed(null)
             // The converted document is not yet a file anywhere; open it as an
             // unsaved document so the user chooses where it goes.
