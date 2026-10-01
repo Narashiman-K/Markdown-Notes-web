@@ -56,7 +56,9 @@ const MENUS: Menu[] = [
       { label: 'Paste', action: 'edit:paste', accelerator: 'Ctrl+V' },
       { label: 'Select all', action: 'edit:selectAll', accelerator: 'Ctrl+A' },
       { separator: true, label: '' },
-      { label: 'Find…', action: 'edit:find', accelerator: 'Ctrl+F' }
+      { label: 'Find…', action: 'edit:find', accelerator: 'Ctrl+F' },
+      { separator: true, label: '' },
+      { label: 'Remove original page pictures', action: 'edit:removeScans' }
     ]
   },
   {
@@ -66,6 +68,7 @@ const MENUS: Menu[] = [
       { label: 'Edit mode', action: 'view:mode:edit', accelerator: 'Ctrl+E' },
       { label: 'Reader mode', action: 'view:reader', accelerator: 'F9' },
       { label: 'Page view', action: 'view:pages' },
+      { label: 'Original page pictures', action: 'view:scans' },
       { separator: true, label: '' },
       { label: 'Zoom in', action: 'view:zoom:in', accelerator: 'Ctrl+=' },
       { label: 'Zoom out', action: 'view:zoom:out', accelerator: 'Ctrl+-' },
@@ -154,9 +157,11 @@ interface Props {
   compact: boolean
   /** Ticks View > Page view. */
   pageView?: boolean
+  /** Ticks View > Original page pictures. */
+  scansShown?: boolean
 }
 
-export default function MenuBar({ onAction, compact, pageView }: Props): React.JSX.Element {
+export default function MenuBar({ onAction, compact, pageView, scansShown }: Props): React.JSX.Element {
   const [open, setOpen] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -176,7 +181,8 @@ export default function MenuBar({ onAction, compact, pageView }: Props): React.J
     }
   }, [open])
 
-  const tick = (item: MenuItem): string => (item.action === 'view:pages' && pageView ? '✓ ' : '')
+  const tick = (item: MenuItem): string =>
+    (item.action === 'view:pages' && pageView) || (item.action === 'view:scans' && scansShown) ? '✓ ' : ''
 
   const run = (item: MenuItem): void => {
     setOpen(null)
