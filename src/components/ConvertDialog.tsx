@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { platform } from '../platform'
 import { convertToMarkdown, FORMAT_GROUPS, extensionOf, needsOcr, needsTranscription } from '../lib/convert'
+import Loader from './Loader'
 
 /**
  * Converts documents to Markdown.
@@ -373,7 +374,12 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
           </div>
         )}
 
-        {busy && progress && <p className="muted small progress-line">{progress}</p>}
+        {busy && progress && (
+          <p className="muted small progress-line">
+            <Loader size={22} inline />
+            {progress}
+          </p>
+        )}
 
         {finished && doneItems.length > 0 && (
           <div className="result-panel">
