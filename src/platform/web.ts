@@ -40,7 +40,8 @@ const DEFAULT_SETTINGS: Settings = {
   convertOpenAfter: 'ask',
   lastDocumentId: null,
   blockTints: [...DEFAULT_BLOCK_TINTS],
-  reader: { ...DEFAULT_READER }
+  reader: { ...DEFAULT_READER },
+  ocrLanguages: ['eng']
 }
 
 const FALLBACK_MODELS: Record<ProviderId, string[]> = {

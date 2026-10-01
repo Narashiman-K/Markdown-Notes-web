@@ -13,6 +13,7 @@ import NoteDialog from './components/NoteDialog'
 import AboutDialog from './components/AboutDialog'
 import ConvertDialog from './components/ConvertDialog'
 import MergeDialog from './components/MergeDialog'
+import { normaliseOcrLanguages } from './lib/ocrLanguages'
 import AiPanel from './components/AiPanel'
 import DiffDialog from './components/DiffDialog'
 import { installSignature, signatureComment } from './lib/signature'
@@ -87,6 +88,14 @@ export default function App(): React.JSX.Element {
   const [theme, setTheme] = useState<Theme>('system')
   const [systemDark, setSystemDark] = useState(false)
   const [blockTints, setBlockTints] = useState<BlockKind[]>(() => [...DEFAULT_BLOCK_TINTS])
+  // Languages offline OCR reads. Remembered: a user with Kannada scans should
+  // not have to tick Kannada every time.
+  const [ocrLanguages, setOcrLanguages] = useState<string[]>(['eng'])
+  const changeOcrLanguages = useCallback((codes: string[]) => {
+    const clean = normaliseOcrLanguages(codes)
+    setOcrLanguages(clean)
+    void platform.setSettings({ ocrLanguages: clean })
+  }, [])
   const [readerOn, setReaderOn] = useState(false)
   const [reader, setReader] = useState<ReaderSettings>(DEFAULT_READER)
   /*
@@ -163,6 +172,7 @@ export default function App(): React.JSX.Element {
       .getSettings()
       .then((s) => {
         setBlockTints(s.blockTints ?? [...DEFAULT_BLOCK_TINTS])
+        setOcrLanguages(normaliseOcrLanguages(s.ocrLanguages))
         if (s.reader) setReader({ ...DEFAULT_READER, ...s.reader })
       })
       .catch(() => undefined)
@@ -1239,6 +1249,7 @@ export default function App(): React.JSX.Element {
 
       {mergeOpen && (
         <MergeDialog
+          ocrLanguages={ocrLanguages}
           current={content.trim() ? { name: fileName, markdown: content } : null}
           pickFiles={async () =>
             (await platform.pickFilesToConvert()).map((file) => ({ name: file.name, read: () => platform.readBytes(file) }))
@@ -1264,6 +1275,8 @@ export default function App(): React.JSX.Element {
 
       {convertSeed !== null && (
         <ConvertDialog
+          ocrLanguages={ocrLanguages}
+          onOcrLanguagesChange={changeOcrLanguages}
           initialFiles={convertSeed}
           onClose={() => setConvertSeed(null)}
           onToast={flash}

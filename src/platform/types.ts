@@ -86,6 +86,8 @@ export interface Settings {
   blockTints: BlockKind[]
   /** Reading preferences: measure, text size, line spacing and palette. */
   reader: ReaderSettings
+  /** Languages offline OCR reads, as Tesseract codes ('eng', 'kan', 'hin'). */
+  ocrLanguages: string[]
 }
 
 export interface Capabilities {

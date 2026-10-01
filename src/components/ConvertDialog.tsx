@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { platform } from '../platform'
 import { convertToMarkdown, FORMAT_GROUPS, extensionOf, needsOcr, needsTranscription } from '../lib/convert'
 import Loader from './Loader'
+import { BUILT_IN_OCR_LANGUAGES } from '../lib/ocrLanguages'
 import { UNREADABLE_CONFIDENCE } from '../lib/convert/ocr'
 
 /**
@@ -31,6 +32,9 @@ interface Props {
   onClose: () => void
   onOpenResult: (name: string, markdown: string) => void
   onToast: (msg: string) => void
+  /** Languages offline OCR reads; remembered by the app between sessions. */
+  ocrLanguages: readonly string[]
+  onOcrLanguagesChange: (codes: string[]) => void
 }
 
 const GEMINI_HELP = {
@@ -213,6 +217,7 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
       const bytes = await platform.readBytes(item.file)
       const result = await convertToMarkdown(bytes, item.name, {
         ocrMode,
+        ocrLanguages: props.ocrLanguages,
         onProgress: (message) => setProgress(`${item.name}: ${message}`),
         cloudOcr: (b, mimeType) => platform.visionOcr(b, mimeType),
         transcribe: (b) => platform.transcribeAudio(b, (m) => setProgress(`${item.name}: ${m}`))
@@ -307,6 +312,35 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
                 to Google. {geminiSaved ? <span className="ok-text">Key saved.</span> : <span className="warn">Needs your API key.</span>}
               </span>
             </label>
+            {ocrMode === 'offline' && (
+              <div className="ocr-langs">
+                <div className="small">
+                  <strong>Text language</strong>: tick every language the pages are written in.
+                </div>
+                <div className="ocr-lang-list">
+                  {BUILT_IN_OCR_LANGUAGES.map((l) => (
+                    <label key={l.code} className="checkline ocr-lang">
+                      <input
+                        type="checkbox"
+                        checked={props.ocrLanguages.includes(l.code)}
+                        onChange={(e) => {
+                          const next = e.target.checked
+                            ? [...props.ocrLanguages, l.code]
+                            : props.ocrLanguages.filter((c) => c !== l.code)
+                          // At least one: reading with no language reads nothing.
+                          if (next.length) props.onOcrLanguagesChange(next)
+                        }}
+                      />
+                      <span className="small">{l.native === l.name ? l.name : `${l.native} (${l.name})`}</span>
+                    </label>
+                  ))}
+                </div>
+                {props.ocrLanguages.length > 1 && (
+                  <div className="small muted">Several languages at once read a little more slowly.</div>
+                )}
+              </div>
+            )}
+
             {ocrMode === 'cloud' && !geminiSaved && !showKeyPanel && (
               <button className="link" onClick={() => openKeyPanel('gemini')}>
                 Add a Gemini API key
