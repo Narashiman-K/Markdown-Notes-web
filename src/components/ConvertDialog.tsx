@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { platform } from '../platform'
 import { convertToMarkdown, FORMAT_GROUPS, extensionOf, needsOcr, needsTranscription } from '../lib/convert'
 import Loader from './Loader'
+import { UNREADABLE_CONFIDENCE } from '../lib/convert/ocr'
 
 /**
  * Converts documents to Markdown.
@@ -20,6 +21,8 @@ interface QueueItem {
   isAudio: boolean
   status: 'pending' | 'working' | 'done' | 'error'
   markdown?: string
+  /** Converted, but offline OCR was too unsure for the text to be trusted. */
+  unreadable?: boolean
   error?: string
 }
 
@@ -216,7 +219,7 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
       })
 
       working[i] = result.ok
-        ? { ...item, status: 'done', markdown: result.markdown }
+        ? { ...item, status: 'done', markdown: result.markdown, unreadable: Number(result.meta?.confidence ?? 100) < UNREADABLE_CONFIDENCE }
         : { ...item, status: 'error', error: result.error }
       setQueue([...working])
     }
@@ -380,7 +383,12 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
                 <span className="grow" />
                 <span className="cv-status small">
                   {q.status === 'working' && 'converting…'}
-                  {q.status === 'done' && 'done'}
+                  {q.status === 'done' &&
+                    (q.unreadable ? (
+                      <span className="warn" title="Offline OCR could hardly read this file. It reads English only for now, so another language or script comes out as nonsense. Try Cloud OCR.">check the result</span>
+                    ) : (
+                      'done'
+                    ))}
                   {q.status === 'error' && (
                     <span className="warn" title={q.error}>
                       failed
