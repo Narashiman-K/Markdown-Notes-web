@@ -27,17 +27,22 @@ function packageDir(name) {
 }
 
 /**
- * Only the SIMD LSTM core is staged, at roughly 3.9 MB.
+ * The two SIMD LSTM cores, at roughly 3.9 MB each.
  *
- * The plain (non-LSTM) cores are twice the size and tesseract.js v5+ does not
- * use them. The non-SIMD core would add another 3.9 MB to guard against
- * browsers without WebAssembly SIMD, which Chromium has had since 2021 and
- * every Android WebView on a supported device therefore has too. On the rare
- * device that lacks it, ocr.ts falls back to the library's CDN default rather
- * than failing, so the cost of leaving it out is a slower first run for almost
- * nobody instead of 3.9 MB for everybody.
+ * tesseract.js probes the processor and asks for the best core it can run:
+ * relaxed-SIMD first, then plain SIMD, then the plain build. Only the plain
+ * SIMD core used to be staged, on the assumption that it was what browsers
+ * would request. It is not: Chromium has had relaxed SIMD since 2023, so the
+ * Windows app, Chrome and Edge all asked for the relaxed core, found it
+ * missing, and failed. In the Windows app that broke offline OCR outright
+ * (its CSP refuses the CDN fallback); in the web app it silently fetched the
+ * core from jsdelivr every time, the very request this script exists to
+ * prevent. Firefox and Safari take the plain SIMD core.
+ *
+ * The non-SIMD core is left out: every supported browser has SIMD, and on a
+ * device without it ocr.ts falls back to the CDN rather than failing.
  */
-const CORES = ['tesseract-core-simd-lstm.wasm.js']
+const CORES = ['tesseract-core-relaxedsimd-lstm.wasm.js', 'tesseract-core-simd-lstm.wasm.js']
 
 async function main() {
   await mkdir(outDir, { recursive: true })
@@ -48,7 +53,18 @@ async function main() {
   await copyFile(workerSrc, join(outDir, 'worker.min.js'))
   copied.push('worker.min.js')
 
-  const coreDir = packageDir('tesseract.js-core')
+  /*
+   * The core is taken from the copy tesseract.js itself depends on, not from
+   * whatever `tesseract.js-core` happens to sit at the top of node_modules.
+   * The two had drifted: tesseract.js 7 (whose worker asks for the
+   * relaxed-SIMD core) beside a directly declared tesseract.js-core 6, which
+   * has no relaxed-SIMD build. Staging from the wrong one is what left the
+   * worker asking for a file that was never copied.
+   */
+  const coreDir = dirname(
+    createRequire(join(packageDir('tesseract.js'), 'package.json')).resolve('tesseract.js-core/package.json')
+  )
+  const coreVersion = require(join(coreDir, 'package.json')).version
   for (const file of CORES) {
     const src = join(coreDir, file)
     if (!existsSync(src)) {
@@ -74,7 +90,7 @@ async function main() {
   let total = 0
   for (const name of copied) total += (await stat(join(outDir, name))).size
   console.log(
-    `tesseract: staged ${copied.length} files, ${(total / 1024 / 1024).toFixed(1)} MB → public/tesseract`
+    `tesseract: staged ${copied.length} files (core ${coreVersion}), ${(total / 1024 / 1024).toFixed(1)} MB → public/tesseract`
   )
 }
 
