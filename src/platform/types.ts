@@ -88,6 +88,8 @@ export interface Settings {
   reader: ReaderSettings
   /** Languages offline OCR reads, as Tesseract codes ('eng', 'kan', 'hin'). */
   ocrLanguages: string[]
+  /** Scanned PDFs: keep each page's picture beside its text. */
+  keepPageImages: boolean
 }
 
 export interface Capabilities {

@@ -65,6 +65,7 @@ const MENUS: Menu[] = [
       { label: 'View mode', action: 'view:mode:view', accelerator: 'Ctrl+Shift+V' },
       { label: 'Edit mode', action: 'view:mode:edit', accelerator: 'Ctrl+E' },
       { label: 'Reader mode', action: 'view:reader', accelerator: 'F9' },
+      { label: 'Page view', action: 'view:pages' },
       { separator: true, label: '' },
       { label: 'Zoom in', action: 'view:zoom:in', accelerator: 'Ctrl+=' },
       { label: 'Zoom out', action: 'view:zoom:out', accelerator: 'Ctrl+-' },
@@ -151,9 +152,11 @@ const MENUS: Menu[] = [
 interface Props {
   onAction: (action: string) => void
   compact: boolean
+  /** Ticks View > Page view. */
+  pageView?: boolean
 }
 
-export default function MenuBar({ onAction, compact }: Props): React.JSX.Element {
+export default function MenuBar({ onAction, compact, pageView }: Props): React.JSX.Element {
   const [open, setOpen] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -172,6 +175,8 @@ export default function MenuBar({ onAction, compact }: Props): React.JSX.Element
       document.removeEventListener('keydown', esc)
     }
   }, [open])
+
+  const tick = (item: MenuItem): string => (item.action === 'view:pages' && pageView ? '✓ ' : '')
 
   const run = (item: MenuItem): void => {
     setOpen(null)
@@ -193,7 +198,7 @@ export default function MenuBar({ onAction, compact }: Props): React.JSX.Element
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => run(item)}
           >
-            <span>{item.label}</span>
+            <span>{tick(item)}{item.label}</span>
             {item.accelerator && <span className="menu-accel">{item.accelerator}</span>}
           </button>
         )
@@ -228,7 +233,7 @@ export default function MenuBar({ onAction, compact }: Props): React.JSX.Element
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => run(item)}
           >
-                      <span>{item.label}</span>
+                      <span>{tick(item)}{item.label}</span>
                     </button>
                   ))}
               </div>

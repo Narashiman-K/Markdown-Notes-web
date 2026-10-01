@@ -1,6 +1,7 @@
 import { platform } from '../platform'
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { renderMarkdown } from '../lib/markdown'
+import { readPageSize, sheetStyle } from '../lib/pages'
 import { buildSourceMap, indexTextNodes, domToOffset, toSourceRange, type TextNodeIndexEntry } from '../lib/align'
 import { HIGHLIGHT_COLORS } from '../lib/annotations'
 import type { AnnotationType } from '../shared/types'
@@ -30,6 +31,11 @@ interface Props {
   readerMode?: boolean
   onEditAnnotationNote: (id: string) => void
   onScrollRatio?: (ratio: number) => void
+  /**
+   * Show the document on sheets of its original page size, one per original
+   * page (lib/pages.ts). A4 for a document that recorded no size.
+   */
+  pageView?: boolean
 }
 
 interface ToolbarState {
@@ -47,7 +53,10 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(props, ref) {
   const [toolbar, setToolbar] = useState<ToolbarState>({ x: 0, y: 0, visible: false, flip: false })
   const [hoverNote, setHoverNote] = useState<{ x: number; y: number; text: string; id: string } | null>(null)
 
-  const html = useMemo(() => renderMarkdown(source, { screen: true }), [source])
+  // Never while reading: the reader sets its own width and size.
+  const pages = props.pageView === true && !props.readerMode
+  const html = useMemo(() => renderMarkdown(source, { screen: true, pages }), [source, pages])
+  const sheet = useMemo(() => (pages ? sheetStyle(readPageSize(source)) : null), [source, pages])
 
   // Re-index the rendered DOM whenever the document changes.
   useEffect(() => {
@@ -207,7 +216,7 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(props, ref) {
   return (
     <div className="preview-host">
       <div
-        className="preview-scroll"
+        className={`preview-scroll${pages ? ' page-view' : ''}`}
         onScroll={(e) => {
           const el = e.currentTarget
           props.onScrollRatio?.(el.scrollTop / Math.max(1, el.scrollHeight - el.clientHeight))
@@ -215,8 +224,8 @@ const Preview = forwardRef<PreviewHandle, Props>(function Preview(props, ref) {
       >
         <article
           ref={hostRef}
-          className="markdown-body"
-          style={props.readerMode ? undefined : { fontSize: `${zoom * 16}px` }}
+          className={`markdown-body${pages ? ' mn-page-view' : ''}`}
+          style={props.readerMode ? undefined : ({ fontSize: `${zoom * 16}px`, ...sheet } as React.CSSProperties)}
           dangerouslySetInnerHTML={{ __html: html }}
         />
       </div>

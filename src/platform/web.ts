@@ -41,7 +41,8 @@ const DEFAULT_SETTINGS: Settings = {
   lastDocumentId: null,
   blockTints: [...DEFAULT_BLOCK_TINTS],
   reader: { ...DEFAULT_READER },
-  ocrLanguages: ['eng']
+  ocrLanguages: ['eng'],
+  keepPageImages: false
 }
 
 const FALLBACK_MODELS: Record<ProviderId, string[]> = {
