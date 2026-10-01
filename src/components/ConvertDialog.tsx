@@ -103,7 +103,15 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState('')
   const [finished, setFinished] = useState(false)
-  const [ocrMode, setOcrMode] = useState<'cloud' | 'offline'>('cloud')
+  /*
+   * Offline unless the user ticks Cloud in this dialog, every time it opens.
+   * It used to default to Cloud, and because the choice was shown only for
+   * images, a scanned PDF went to Google with no choice on screen at all,
+   * beneath a banner saying everything runs on this computer. Deliberately not
+   * remembered between conversions: sending a document to a third party should
+   * be decided for that document.
+   */
+  const [ocrMode, setOcrMode] = useState<'cloud' | 'offline'>('offline')
   const [geminiSaved, setGeminiSaved] = useState(false)
   const [assemblySaved, setAssemblySaved] = useState(false)
   const [keyDraft, setKeyDraft] = useState('')
@@ -114,6 +122,9 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
 
   const hasImages = useMemo(() => queue.some((q) => q.isImage), [queue])
   const hasAudio = useMemo(() => queue.some((q) => q.isAudio), [queue])
+  const hasPdfs = useMemo(() => queue.some((q) => q.ext === 'pdf'), [queue])
+  /** OCR may be needed: for images always, for a PDF only if it proves to be scanned. */
+  const ocrRelevant = hasImages || hasPdfs
   const doneItems = useMemo(() => queue.filter((q) => q.status === 'done'), [queue])
 
   const refreshKeys = useCallback(async () => {
@@ -170,7 +181,7 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
 
   const convertAll = async (): Promise<void> => {
     if (!queue.length || busy) return
-    if (hasImages && ocrMode === 'cloud' && !geminiSaved) {
+    if (ocrRelevant && ocrMode === 'cloud' && !geminiSaved) {
       openKeyPanel('gemini')
       props.onToast('Add a Gemini key, or switch to offline OCR.')
       return
@@ -227,10 +238,22 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
       <div className="modal convert-modal" onMouseDown={(e) => e.stopPropagation()}>
         <h3>Convert to Markdown</h3>
 
-        <div className="status-strip good">
-          <span className="dot-status" />
-          <span>Documents are converted in your browser — nothing is uploaded</span>
-        </div>
+        {/*
+          Says what will actually happen. With Cloud ticked, pictures and
+          scanned pages leave the machine, and a green "nothing leaves"
+          banner above that choice would be telling the user something false.
+        */}
+        {ocrRelevant && ocrMode === 'cloud' ? (
+          <div className="status-strip bad">
+            <span className="dot-status" />
+            <span>Cloud OCR chosen — pictures and scanned pages will be sent to Google Gemini</span>
+          </div>
+        ) : (
+          <div className="status-strip good">
+            <span className="dot-status" />
+            <span>Documents are converted in your browser — nothing is uploaded</span>
+          </div>
+        )}
 
         <div
           className={`dropzone ${dragging ? 'over' : ''}`}
@@ -256,21 +279,29 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
           </div>
         </div>
 
-        {hasImages && (
+        {ocrRelevant && (
           <div className="ocr-panel">
-            <div className="small"><strong>Images detected — how should text be read from them?</strong></div>
-            <label className="checkline">
-              <input type="radio" name="ocr" checked={ocrMode === 'cloud'} onChange={() => setOcrMode('cloud')} />
-              <span className="small">
-                <strong>Cloud (Google Gemini)</strong> — more accurate, and describes charts. Sends the image
-                to Google. {geminiSaved ? <span className="ok-text">Key saved.</span> : <span className="warn">Needs your API key.</span>}
-              </span>
-            </label>
+            <div className="small">
+              <strong>
+                {hasImages && hasPdfs
+                  ? 'Images and PDFs — how should text be read from pictures and scanned pages?'
+                  : hasImages
+                    ? 'Images detected — how should text be read from them?'
+                    : 'If a PDF turns out to be scanned, how should its pages be read?'}
+              </strong>
+            </div>
             <label className="checkline">
               <input type="radio" name="ocr" checked={ocrMode === 'offline'} onChange={() => setOcrMode('offline')} />
               <span className="small">
                 <strong>In this browser</strong> — no key, nothing leaves your device. Good on clear printed
                 text, weaker on anything else.
+              </span>
+            </label>
+            <label className="checkline">
+              <input type="radio" name="ocr" checked={ocrMode === 'cloud'} onChange={() => setOcrMode('cloud')} />
+              <span className="small">
+                <strong>Cloud (Google Gemini), only if you choose it</strong> — more accurate, and describes charts. Sends the image
+                to Google. {geminiSaved ? <span className="ok-text">Key saved.</span> : <span className="warn">Needs your API key.</span>}
               </span>
             </label>
             {ocrMode === 'cloud' && !geminiSaved && !showKeyPanel && (
