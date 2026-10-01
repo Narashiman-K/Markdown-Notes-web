@@ -94,6 +94,7 @@ const MENUS: Menu[] = [
       { label: 'Block quote', action: 'insert:quote' },
       { separator: true, label: '' },
       { label: 'Link…', action: 'insert:link', accelerator: 'Ctrl+K' },
+      { label: 'Image…', action: 'insert:image' },
       { label: 'Table', action: 'insert:table' },
       { label: 'Code block', action: 'insert:codeblock' },
       { label: 'Horizontal rule', action: 'insert:hr' }
