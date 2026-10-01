@@ -55,5 +55,12 @@ export default defineConfig({
     })
   ],
   build: { target: 'es2022', chunkSizeWarningLimit: 4000 },
-  server: { port: 5173 }
+  /*
+   * 5180, and strict. The Windows app's dev server also starts on Vite's
+   * default 5173, and whichever started second used to drift to the next free
+   * port silently — once leaving the desktop renderer on 5173, where the web
+   * app was expected, so the browser showed a blank page. A fixed, strict port
+   * fails loudly instead of quietly serving the wrong app.
+   */
+  server: { port: 5180, strictPort: true }
 })
