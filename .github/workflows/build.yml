@@ -35,6 +35,11 @@ jobs:
           python -m pip install --quiet python-docx openpyxl reportlab python-pptx
           python samples/make.py
 
+      - name: Security audit gate
+        # Fails on any high or critical advisory not listed, with a reason and
+        # a review date, in audit-allowlist.json (scripts/audit-gate.mjs).
+        run: npm run audit:gate
+
       - name: Type check
         run: npm run typecheck
 
