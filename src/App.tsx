@@ -411,7 +411,8 @@ export default function App(): React.JSX.Element {
         setOpenDoc(r.doc)
         setFileName(r.doc.name)
         setDirty(false)
-        setMode('view')
+        // Stay where you are. Saving used to switch to View mode, so after
+        // every save you had to go back to Edit and find your place again.
         flash(
           r.doc.canSaveInPlace
             ? `Saved ${r.doc.name}`
