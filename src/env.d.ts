@@ -27,3 +27,6 @@ declare module 'markdown-it-deflist' {
   const plugin: MarkdownIt.PluginSimple
   export default plugin
 }
+
+/** The app's version from package.json, set at build time (vite.config.ts). */
+declare const __APP_VERSION__: string

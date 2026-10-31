@@ -15,7 +15,11 @@ const vercel = JSON.parse(readFileSync(new URL('./vercel.json', import.meta.url)
 }
 const securityHeaders = Object.fromEntries(vercel.headers[0].headers.map((h) => [h.key, h.value]))
 
+/** The app's version, shown in the window title (platform/web.ts). */
+const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string }
+
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(version) },
   plugins: [
     react(),
     VitePWA({

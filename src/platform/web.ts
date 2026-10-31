@@ -583,7 +583,7 @@ export class WebPlatform implements Platform {
   }
 
   setTitle(name: string, dirty: boolean): void {
-    document.title = `${dirty ? '• ' : ''}${name} — Suprasūtā Markdown Notes`
+    document.title = `${dirty ? '• ' : ''}${name} — Suprasūtā Markdown Notes V${__APP_VERSION__}`
   }
 
   openExternal(url: string): void {

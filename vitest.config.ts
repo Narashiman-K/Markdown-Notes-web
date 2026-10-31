@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config'
 import { resolve } from 'node:path'
 
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify('test') },
   resolve: {
     alias: {
       // Vite serves mammoth browser build; make tests use the same one.
