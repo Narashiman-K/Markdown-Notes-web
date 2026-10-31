@@ -111,11 +111,34 @@ export class WebPlatform implements Platform {
 
   /* ---------------------------------------------------------------- files */
 
+  /**
+   * Set when the File System Access picker hands back a file the browser then
+   * refuses to read (handle.getFile() failing, seen for local and OneDrive
+   * files alike in some browser setups). From then on this session uses the
+   * plain file input, which reads files another way.
+   */
+  private fileAccessFailed = false
+
   async openDocument(): Promise<OpenResult> {
     try {
-      if (this.capabilities.fileSystemAccess && win.showOpenFilePicker) {
+      if (this.capabilities.fileSystemAccess && !this.fileAccessFailed && win.showOpenFilePicker) {
         const [handle] = await win.showOpenFilePicker({ multiple: false })
-        const file = await handle.getFile()
+        let file: File
+        try {
+          file = await handle.getFile()
+        } catch (err) {
+          if ((err as Error)?.name === 'AbortError') return { ok: false, canceled: true }
+          this.fileAccessFailed = true
+          const why = `${(err as Error)?.name ?? 'Error'}: ${(err as Error)?.message ?? err}`
+          console.warn('File System Access getFile failed; using the standard file picker from now on.', err)
+          return {
+            ok: false,
+            error:
+              `This browser would not let the app read that file (${why}). ` +
+              'Press File > Open again: the app now uses the browser\'s standard file picker, which reads files ' +
+              'another way. (Saving then downloads a copy instead of writing back to the file.)'
+          }
+        }
         if (!isReadableText(file.name)) {
           return isConvertible(file.name)
             ? { ok: true, needsConversion: true, file }
