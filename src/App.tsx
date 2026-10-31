@@ -1,4 +1,5 @@
 import { platform, type OpenDocument, type OpenResult } from './platform'
+import type { ProviderId } from './platform/types'
 import { basename, confirmDialog, messageDialog, confirmUnsavedDialog } from './lib/dialogs'
 import { isNative, isReadableText } from './shared/formats'
 import MenuBar from './components/MenuBar'
@@ -51,6 +52,9 @@ import { DEFAULT_BLOCK_TINTS, type BlockKind } from './lib/blockTints'
 import { linkScrollers, previewScrollTarget, type ScrollSyncTarget } from './lib/syncScroll'
 import LivePreview, { type PreviewFormat } from './components/LivePreview'
 import ReaderControls from './components/ReaderControls'
+import CompareView, { type CompareSource } from './components/CompareView'
+import { startTabLink, otherTabs, tabText, setTabText } from './lib/tabLink'
+import { convertToMarkdown as convertForCompare } from './lib/convert'
 import {
   applyReaderVariables,
   DEFAULT_READER,
@@ -170,6 +174,7 @@ export default function App(): React.JSX.Element {
   const [showAbout, setShowAbout] = useState(false)
   const [convertSeed, setConvertSeed] = useState<File[] | null>(null)
   const [mergeOpen, setMergeOpen] = useState(false)
+  const [compareOpen, setCompareOpen] = useState(false)
   const [openDoc, setOpenDoc] = useState<OpenDocument | null>(null)
   const [showLibrary, setShowLibrary] = useState(false)
   const [appDragging, setAppDragging] = useState(false)
@@ -325,6 +330,113 @@ export default function App(): React.JSX.Element {
     },
     []
   )
+
+  /*
+   * Compare documents: other tabs can ask this one for its document, and
+   * save changes into it (undoable here). The refs keep the answer current
+   * without restarting the channel on every keystroke.
+   */
+  const tabDocRef = useRef({ name: 'Untitled', content: '' })
+  tabDocRef.current = { name: fileName, content }
+  useEffect(
+    () =>
+      startTabLink({
+        current: () => tabDocRef.current,
+        apply: (text, label) => commitContent(text, label)
+      }),
+    [commitContent]
+  )
+
+  /** Where the other side of a comparison can come from, in the browser. */
+  const compareSources = useCallback(async (): Promise<CompareSource[]> => {
+    const TEXT = ['md', 'markdown', 'mdown', 'mkd', 'mdx', 'txt', 'text']
+    const list: CompareSource[] = [
+      {
+        id: 'file',
+        label: 'Another file…',
+        detail: 'Markdown or text, or Word, PDF, PowerPoint, EPUB… (converted first, on this device)',
+        load: async () => {
+          const [file] = await platform.pickFilesToConvert()
+          if (!file) return null
+          const bytes = await platform.readBytes(file)
+          const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+          let text: string
+          if (TEXT.includes(ext)) text = new TextDecoder('utf-8').decode(bytes)
+          else {
+            const r = await convertForCompare(bytes, file.name, { ocrMode: 'offline', ocrLanguages, keepPageImages })
+            if (!r.ok) throw new Error(r.error || `Could not read ${file.name}.`)
+            text = r.markdown
+          }
+          return {
+            name: file.name,
+            text,
+            saveLabel: 'Download edited copy',
+            save: async (t) => {
+              const base = file.name.replace(/\.[^.]+$/, '')
+              await platform.exportFile(`${base}${TEXT.includes(ext) ? `.${ext}` : '.md'}`, t, 'text/markdown')
+              return null
+            }
+          }
+        }
+      }
+    ]
+    const doc = openDoc
+    if (doc) {
+      list.push({
+        id: 'saved',
+        label: 'The saved version of this document',
+        detail: 'What you changed since it was last saved',
+        load: async () => {
+          const disk = await platform.readOnDisk(doc).catch(() => null)
+          if (disk) return { name: `${doc.name} (saved)`, text: disk.content }
+          if (doc.id) {
+            const stored = await platform.loadDocument(doc.id)
+            if (stored) return { name: `${doc.name} (saved)`, text: stored.content }
+          }
+          throw new Error('There is no saved copy of this document to compare with yet.')
+        }
+      })
+    }
+    for (const tab of await otherTabs()) {
+      list.push({
+        id: `tab:${tab.tabId}`,
+        label: tab.name,
+        detail: 'Open in another tab',
+        load: async () => {
+          const got = await tabText(tab.tabId)
+          if (!got) throw new Error('That tab did not answer. It may have been closed.')
+          return {
+            name: got.name,
+            text: got.content,
+            saveLabel: 'Update that tab',
+            save: async (t) => ((await setTabText(tab.tabId, t)) ? null : 'That tab did not answer. It may have been closed.')
+          }
+        }
+      })
+    }
+    for (const saved of (await platform.listDocuments().catch(() => [])).slice(0, 12)) {
+      if (doc?.id && saved.id === doc.id) continue
+      list.push({
+        id: `lib:${saved.id}`,
+        label: saved.name,
+        detail: `In My documents · ${new Date(saved.updatedAt).toLocaleString()}`,
+        load: async () => {
+          const d = await platform.loadDocument(saved.id)
+          if (!d) throw new Error(`${saved.name} is no longer in My documents.`)
+          return {
+            name: d.name,
+            text: d.content,
+            saveLabel: 'Save to My documents',
+            save: async (t) => {
+              await platform.storeDocument(d.name, t, saved.id)
+              return null
+            }
+          }
+        }
+      })
+    }
+    return list
+  }, [openDoc, ocrLanguages, keepPageImages])
 
   const doUndo = useCallback(() => {
     // In edit mode the source editor owns undo, so keystroke-level history
@@ -677,6 +789,9 @@ export default function App(): React.JSX.Element {
           return
         case 'file:merge':
           setMergeOpen(true)
+          return
+        case 'file:compare':
+          setCompareOpen(true)
           return
         case 'ai:toggle':
           setAiOpen((v) => !v)
@@ -1521,6 +1636,25 @@ export default function App(): React.JSX.Element {
             setPendingDiff(null)
             flash(`${pendingDiff.label} applied. Ctrl+Z to undo.`)
           }}
+        />
+      )}
+
+      {compareOpen && (
+        <CompareView
+          leftName={fileName}
+          leftText={content}
+          onLeftChange={(text, label) => commitContent(text, label)}
+          listSources={compareSources}
+          ask={async (system, user) => {
+            const s = await platform.getSettings()
+            const provider = (s?.aiProvider ?? 'ollama') as ProviderId
+            let model = s?.aiModel ?? ''
+            if (!model) model = (await platform.aiModels(provider)).models?.[0] ?? ''
+            return platform.aiChat({ provider, model, system, messages: [{ role: 'user', content: user }], temperature: 0.2, maxTokens: 1500 })
+          }}
+          exportReport={(name, data, kind) => platform.exportFile(name, data, kind === 'html' ? 'text/html' : 'text/markdown')}
+          confirm={async (title, message) => window.confirm(`${title}\n\n${message}`)}
+          onClose={() => setCompareOpen(false)}
         />
       )}
 

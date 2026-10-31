@@ -44,6 +44,7 @@ const MENUS: Menu[] = [
       { separator: true, label: '' },
       { label: 'Convert to Markdown…', action: 'convert:open', accelerator: 'Ctrl+Shift+M' },
       { label: 'Merge files…', action: 'file:merge' },
+      { label: 'Compare documents…', action: 'file:compare' },
       { separator: true, label: '' },
       { label: 'Print…', action: 'file:print', accelerator: 'Ctrl+P' }
     ]
@@ -134,7 +135,7 @@ const MENUS: Menu[] = [
       // Also chips inside the panel. `ai:quick:*` opens the panel and runs the
       // matching action, so these work whether or not it is already open.
       { label: 'Summarise', action: 'ai:quick:summarise' },
-      { label: 'Compare documents', action: 'ai:quick:compare' },
+      { label: 'Compare loaded documents (AI)', action: 'ai:quick:compare' },
       { label: 'Explain selection', action: 'ai:quick:explain' },
       { label: 'Suggest annotations', action: 'ai:quick:annotate' },
       { separator: true, label: '' },
