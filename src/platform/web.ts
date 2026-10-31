@@ -160,11 +160,21 @@ export class WebPlatform implements Platform {
       }
       return {
         ok: true,
-        doc: { id: null, name: file.name, content: await file.text(), canSaveInPlace: false }
+        doc: { id: null, name: file.name, content: await file.text(), canSaveInPlace: false, copyOfFile: true }
       }
     } catch (err) {
       if ((err as Error)?.name === 'AbortError') return { ok: false, canceled: true }
       return { ok: false, error: String((err as Error)?.message ?? err) }
+    }
+  }
+
+  async readOnDisk(doc: OpenDocument): Promise<{ content: string; lastModified: number } | null> {
+    if (!doc.canSaveInPlace || !doc.handle) return null
+    try {
+      const file = await (doc.handle as FileSystemFileHandle).getFile()
+      return { content: await file.text(), lastModified: file.lastModified }
+    } catch {
+      return null
     }
   }
 

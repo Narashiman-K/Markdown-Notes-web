@@ -384,6 +384,18 @@ export default function App(): React.JSX.Element {
 
       setOpenDoc(r.doc)
       loadDocument(r.doc.name, r.doc.content)
+      diskStamp.current = 0
+      if (r.doc.canSaveInPlace) {
+        void platform.readOnDisk(r.doc).then((d) => {
+          if (d) diskStamp.current = d.lastModified
+        })
+      }
+      if (r.doc.copyOfFile) {
+        flash(
+          'This browser opened a copy of the file, without permission to change the original. ' +
+            'Your changes are kept in My documents; use File > Save as… to save them to a file.'
+        )
+      }
 
       // Indented lines would be read as code blocks, which stops annotations
       // rendering — the same trap the desktop version warns about.
@@ -424,6 +436,11 @@ export default function App(): React.JSX.Element {
         setOpenDoc(r.doc)
         setFileName(r.doc.name)
         setDirty(false)
+        // What is on disk now is ours: changes after this are someone else's.
+        const saved = r.doc
+        void platform.readOnDisk(saved).then((d) => {
+          if (d) diskStamp.current = d.lastModified
+        })
         // Stay where you are. Saving used to switch to View mode, so after
         // every save you had to go back to Edit and find your place again.
         flash(
@@ -1078,13 +1095,64 @@ export default function App(): React.JSX.Element {
     if (!dirtyRef.current || !autosaveRef.current) return
     const { content: text, openDoc: doc, fileName: name } = latestDoc.current
     const current: OpenDocument = doc ?? { id: null, name, content: text, canSaveInPlace: false }
+    if (conflictOpen.current) return
     const r = await platform.saveDocument(current, text)
     if (r.ok && r.doc) {
       setOpenDoc(r.doc)
       if (latestDoc.current.content === text) setDirty(false)
       setAutoSavedAt(new Date())
+      const d = await platform.readOnDisk(r.doc)
+      if (d) diskStamp.current = d.lastModified
     }
   }, [])
+
+  /*
+   * Changes made to the file outside the browser (the Windows app, another
+   * editor). A browser cannot watch a file, so it is read again whenever the
+   * tab comes back into view. Unchanged here: the new version is loaded.
+   * Changed here too: the user chooses, and AutoSave waits for the answer
+   * rather than overwrite the other version.
+   */
+  const diskStamp = useRef(0)
+  const conflictOpen = useRef(false)
+  useEffect(() => {
+    const check = (): void => {
+      if (document.visibilityState !== 'visible') return
+      const doc = latestDoc.current.openDoc
+      if (!doc?.canSaveInPlace || conflictOpen.current) return
+      void platform.readOnDisk(doc).then((d) => {
+        if (!d || !diskStamp.current || d.lastModified <= diskStamp.current) return
+        if (d.content === latestDoc.current.content) {
+          diskStamp.current = d.lastModified
+          return
+        }
+        if (!dirtyRef.current) {
+          diskStamp.current = d.lastModified
+          setContent(d.content)
+          flash('Updated: the file was changed outside this app.')
+          return
+        }
+        conflictOpen.current = true
+        const loadTheirs = window.confirm(
+          `“${doc.name}” was changed outside this app while you have unsaved changes here.\n\n` +
+            'OK: load the changed file (your changes here are discarded).\n' +
+            'Cancel: keep your version (saving will replace the other one).'
+        )
+        diskStamp.current = d.lastModified
+        conflictOpen.current = false
+        if (loadTheirs) {
+          setContent(d.content)
+          setDirty(false)
+        }
+      })
+    }
+    window.addEventListener('focus', check)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      window.removeEventListener('focus', check)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [flash])
 
   useEffect(() => {
     if (!dirty || !autosave) {
@@ -1129,8 +1197,12 @@ export default function App(): React.JSX.Element {
         void (async () => {
           const file = files[0]
           if (!(await guardUnsavedRef.current())) return
-          setOpenDoc({ id: null, name: file.name, content: await file.text(), canSaveInPlace: false })
+          setOpenDoc({ id: null, name: file.name, content: await file.text(), canSaveInPlace: false, copyOfFile: true })
           loadDocument(file.name, await file.text())
+          flash(
+            'Dropped files arrive as a copy, without permission to change the original. Your changes are kept ' +
+              'in My documents; use File > Save as… to save them to a file, or File > Open to edit the file itself.'
+          )
         })()
       } else {
         setConvertSeed(files)
@@ -1308,7 +1380,7 @@ export default function App(): React.JSX.Element {
           {dirty
             ? 'Unsaved changes'
             : autoSavedAt
-              ? `Saved automatically at ${autoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+              ? `Saved automatically ${openDoc?.canSaveInPlace ? 'to the file' : 'to My documents (this browser)'} at ${autoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
               : 'Saved'}
         </span>
         <span>{Math.round(zoom * 100)}%</span>

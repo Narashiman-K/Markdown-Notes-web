@@ -25,6 +25,12 @@ export interface OpenDocument {
   handle?: unknown
   /** True when saving writes straight back to the user's file. */
   canSaveInPlace: boolean
+  /**
+   * A copy of a file on disk that the browser gave no permission to write
+   * back to (the standard file picker, or a dropped file). Saving keeps it in
+   * My documents; Save as… writes a file.
+   */
+  copyOfFile?: boolean
 }
 
 export interface SavedDocument {
@@ -119,6 +125,12 @@ export interface Platform {
   saveDocumentAs(doc: OpenDocument, content: string): Promise<OpenResult>
   /** Reads raw bytes from a File, for the converters. */
   readBytes(file: File): Promise<Uint8Array>
+  /**
+   * The file behind a document opened with write permission, as it is on
+   * disk now; null when there is none to read. Lets the app notice changes
+   * made outside the browser (the Windows app, another editor).
+   */
+  readOnDisk(doc: OpenDocument): Promise<{ content: string; lastModified: number } | null>
   /** Picks one or more files for conversion. */
   pickFilesToConvert(): Promise<File[]>
   /** Offers a produced file to the user (download, or native share). */
