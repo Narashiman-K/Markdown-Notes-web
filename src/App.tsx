@@ -19,6 +19,7 @@ import {
   describeImport,
   exportAnnotations,
   importAnnotations,
+  annotationsNotInFile,
   parseAnnotationsFile
 } from './lib/annotationTransfer'
 import AiPanel from './components/AiPanel'
@@ -764,8 +765,20 @@ export default function App(): React.JSX.Element {
             flash(String((err as Error).message ?? err))
             return
           }
-          const r = importAnnotations(content, file)
-          if (r.placed) commitContent(r.source, `Load annotations (${r.placed})`)
+          const extras = annotationsNotInFile(content, file)
+          const replace =
+            extras.length > 0 &&
+            window.confirm(
+              `This document has ${extras.length} annotation${extras.length === 1 ? '' : 's'} that ${extras.length === 1 ? 'is' : 'are'} not in ${picked.name}:\n\n` +
+                extras
+                  .slice(0, 8)
+                  .map((x) => `• “${x.text.replace(/\s+/g, ' ').trim().slice(0, 70)}”`)
+                  .join('\n') +
+                (extras.length > 8 ? `\n…and ${extras.length - 8} more` : '') +
+                '\n\nOK: remove them, so the annotations are exactly the file\'s.\nCancel: keep them, and only add what the file has.'
+            )
+          const r = importAnnotations(content, file, { replace })
+          if (r.placed || r.removed) commitContent(r.source, `Load annotations (${r.placed} added${r.removed ? `, ${r.removed} removed` : ''})`)
           const { summary, detail } = describeImport(r, picked.name)
           if (detail) window.alert(`${summary}\n\n${detail}`)
           else flash(summary)
@@ -1454,6 +1467,7 @@ export default function App(): React.JSX.Element {
               : 'Saved'}
         </span>
         <span>{Math.round(zoom * 100)}%</span>
+        <span className="app-version" title="Suprasūtā Markdown Notes version">V{__APP_VERSION__}</span>
       </footer>
 
       {toast && (
