@@ -90,6 +90,8 @@ export interface Settings {
   ocrLanguages: string[]
   /** Scanned PDFs: keep each page's picture beside its text. */
   keepPageImages: boolean
+  /** Save every 30 s while there are changes: back to the file, or into the document library. */
+  autosave: boolean
 }
 
 export interface Capabilities {

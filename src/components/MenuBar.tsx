@@ -33,6 +33,7 @@ const MENUS: Menu[] = [
       { separator: true, label: '' },
       { label: 'Save', action: 'file:save', accelerator: 'Ctrl+S' },
       { label: 'Save as…', action: 'file:saveAs', accelerator: 'Ctrl+Shift+S' },
+      { label: 'AutoSave every 30 seconds', action: 'file:autosave' },
       { separator: true, label: '' },
       { label: 'Export as HTML…', action: 'file:export:html' },
       { label: 'Export as PDF…', action: 'file:export:pdf' },
@@ -159,9 +160,11 @@ interface Props {
   pageView?: boolean
   /** Ticks View > Original page pictures. */
   scansShown?: boolean
+  /** Ticks File > AutoSave. */
+  autosave?: boolean
 }
 
-export default function MenuBar({ onAction, compact, pageView, scansShown }: Props): React.JSX.Element {
+export default function MenuBar({ onAction, compact, pageView, scansShown, autosave }: Props): React.JSX.Element {
   const [open, setOpen] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -182,7 +185,11 @@ export default function MenuBar({ onAction, compact, pageView, scansShown }: Pro
   }, [open])
 
   const tick = (item: MenuItem): string =>
-    (item.action === 'view:pages' && pageView) || (item.action === 'view:scans' && scansShown) ? '✓ ' : ''
+    (item.action === 'view:pages' && pageView) ||
+    (item.action === 'view:scans' && scansShown) ||
+    (item.action === 'file:autosave' && autosave)
+      ? '✓ '
+      : ''
 
   const run = (item: MenuItem): void => {
     setOpen(null)

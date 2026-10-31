@@ -79,6 +79,9 @@ type Mode = 'view' | 'edit'
 type SidebarMode = 'none' | 'outline' | 'comments'
 type Theme = 'light' | 'dark' | 'system'
 
+/** How often AutoSave runs while there are unsaved changes. */
+const AUTOSAVE_MS = 30_000
+
 export default function App(): React.JSX.Element {
   const [content, setContent] = useState(WELCOME)
   const [filePath, setFilePath] = useState<string | null>(null)
@@ -104,6 +107,14 @@ export default function App(): React.JSX.Element {
   const docHasScans = useMemo(() => hasScans(content), [content])
   useEffect(() => setPageViewChoice(null), [filePath, fileName])
   const [dirty, setDirty] = useState(false)
+  /*
+   * AutoSave (File menu, on by default): every 30 seconds while there are
+   * unsaved changes, the document is saved the way Save does it without a
+   * dialog: back to the file when the browser has permission to write it,
+   * otherwise into the document library, where it survives closing the tab.
+   */
+  const [autosave, setAutosave] = useState(true)
+  const [autoSavedAt, setAutoSavedAt] = useState<Date | null>(null)
   const [mode, setMode] = useState<Mode>('view')
   const [zoom, setZoom] = useState(1)
   const [theme, setTheme] = useState<Theme>('system')
@@ -199,6 +210,7 @@ export default function App(): React.JSX.Element {
       .then((s) => {
         setBlockTints(s.blockTints ?? [...DEFAULT_BLOCK_TINTS])
         setOcrLanguages(normaliseOcrLanguages(s.ocrLanguages))
+        if (typeof s.autosave === 'boolean') setAutosave(s.autosave)
         setKeepPageImages(s.keepPageImages === true)
         if (s.reader) setReader({ ...DEFAULT_READER, ...s.reader })
       })
@@ -333,6 +345,7 @@ export default function App(): React.JSX.Element {
   }, [flash, history, mode])
 
   const loadDocument = useCallback((path: string | null, text: string) => {
+    setAutoSavedAt(null)
     setContent(text)
     setFilePath(path)
     setDirty(false)
@@ -591,6 +604,13 @@ export default function App(): React.JSX.Element {
   const handleAction = useCallback(
     async (action: string, payload?: unknown) => {
       switch (action) {
+        case 'file:autosave': {
+          const next = !autosaveRef.current
+          setAutosave(next)
+          void platform.setSettings({ autosave: next })
+          flash(next ? 'AutoSave on: changes are saved every 30 seconds.' : 'AutoSave off: press Save to keep your changes.')
+          return
+        }
         case 'file:new':
           return doNew()
         case 'file:open':
@@ -1046,6 +1066,40 @@ export default function App(): React.JSX.Element {
   const dirtyRef = useRef(dirty)
   dirtyRef.current = dirty
 
+  /* ------------------------------------------------------------ AutoSave */
+
+  const autosaveRef = useRef(autosave)
+  autosaveRef.current = autosave
+  const latestDoc = useRef({ content, openDoc, fileName })
+  latestDoc.current = { content, openDoc, fileName }
+  const autosaveTimer = useRef<number | null>(null)
+
+  const runAutosave = useCallback(async () => {
+    if (!dirtyRef.current || !autosaveRef.current) return
+    const { content: text, openDoc: doc, fileName: name } = latestDoc.current
+    const current: OpenDocument = doc ?? { id: null, name, content: text, canSaveInPlace: false }
+    const r = await platform.saveDocument(current, text)
+    if (r.ok && r.doc) {
+      setOpenDoc(r.doc)
+      if (latestDoc.current.content === text) setDirty(false)
+      setAutoSavedAt(new Date())
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!dirty || !autosave) {
+      if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current)
+      autosaveTimer.current = null
+      return
+    }
+    // Every 30 seconds while changes go on, not after the last keystroke.
+    if (autosaveTimer.current) return
+    autosaveTimer.current = window.setTimeout(() => {
+      autosaveTimer.current = null
+      void runAutosave()
+    }, AUTOSAVE_MS)
+  }, [dirty, content, autosave, runAutosave])
+
   useEffect(() => {
     installSignature()
   }, [])
@@ -1141,7 +1195,7 @@ export default function App(): React.JSX.Element {
           onExit={() => setReaderOn(false)}
         />
       )}
-      <MenuBar onAction={(a) => void actionRef.current(a)} compact={platform.capabilities.touch} pageView={pageView} scansShown={docHasScans && showScans} />
+      <MenuBar onAction={(a) => void actionRef.current(a)} compact={platform.capabilities.touch} pageView={pageView} scansShown={docHasScans && showScans} autosave={autosave} />
 
       <Toolbar
         mode={mode}
@@ -1250,7 +1304,13 @@ export default function App(): React.JSX.Element {
         <span>{annotations.length} annotations</span>
         <span>~{stats.readMin} min read</span>
         <span className="grow" />
-        <span>{dirty ? 'Unsaved changes' : 'Saved'}</span>
+        <span title={autosave ? 'AutoSave is on (File menu)' : 'AutoSave is off (File menu)'}>
+          {dirty
+            ? 'Unsaved changes'
+            : autoSavedAt
+              ? `Saved automatically at ${autoSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+              : 'Saved'}
+        </span>
         <span>{Math.round(zoom * 100)}%</span>
       </footer>
 

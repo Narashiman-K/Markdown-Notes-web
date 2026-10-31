@@ -42,7 +42,8 @@ const DEFAULT_SETTINGS: Settings = {
   blockTints: [...DEFAULT_BLOCK_TINTS],
   reader: { ...DEFAULT_READER },
   ocrLanguages: ['eng'],
-  keepPageImages: false
+  keepPageImages: false,
+  autosave: true
 }
 
 const FALLBACK_MODELS: Record<ProviderId, string[]> = {
