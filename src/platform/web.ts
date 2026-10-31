@@ -227,6 +227,13 @@ export class WebPlatform implements Platform {
     return pickWithInput(true)
   }
 
+  async pickTextFile(extension: string): Promise<{ name: string; content: string } | null> {
+    const [file] = await pickWithInput(false, extension)
+    if (!file) return null
+    if (file.size > 20 * 1024 * 1024) throw new Error('That file is too large to be an annotations file.')
+    return { name: file.name, content: await file.text() }
+  }
+
   async exportFile(name: string, data: string | Blob, mimeType: string): Promise<void> {
     download(name, data, mimeType)
   }
@@ -585,11 +592,12 @@ export class WebPlatform implements Platform {
 }
 
 /** File input fallback for browsers without the File System Access API. */
-function pickWithInput(multiple: boolean): Promise<File[]> {
+function pickWithInput(multiple: boolean, accept?: string): Promise<File[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input')
     input.type = 'file'
     input.multiple = multiple
+    if (accept) input.accept = accept
     input.onchange = () => resolve(Array.from(input.files ?? []))
     input.oncancel = () => resolve([])
     input.click()

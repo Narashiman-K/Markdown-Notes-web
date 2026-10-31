@@ -125,6 +125,8 @@ export interface Platform {
   saveDocumentAs(doc: OpenDocument, content: string): Promise<OpenResult>
   /** Reads raw bytes from a File, for the converters. */
   readBytes(file: File): Promise<Uint8Array>
+  /** Picks one text file of the given extension (an annotations .json). */
+  pickTextFile(extension: string): Promise<{ name: string; content: string } | null>
   /**
    * The file behind a document opened with write permission, as it is on
    * disk now; null when there is none to read. Lets the app notice changes

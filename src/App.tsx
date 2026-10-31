@@ -14,6 +14,13 @@ import AboutDialog from './components/AboutDialog'
 import ConvertDialog from './components/ConvertDialog'
 import MergeDialog from './components/MergeDialog'
 import { normaliseOcrLanguages } from './lib/ocrLanguages'
+import {
+  annotationSummary,
+  describeImport,
+  exportAnnotations,
+  importAnnotations,
+  parseAnnotationsFile
+} from './lib/annotationTransfer'
 import AiPanel from './components/AiPanel'
 import DiffDialog from './components/DiffDialog'
 import { installSignature, signatureComment } from './lib/signature'
@@ -618,6 +625,17 @@ export default function App(): React.JSX.Element {
 
   /* ------------------------------------------------------- menu actions */
 
+  /** Saves (downloads) this document's annotations as name.annotations.json. */
+  const saveAnnotationsFile = useCallback(async (): Promise<void> => {
+    const base = fileName.replace(/\.[^.]+$/, '').replace(/-clean$/, '')
+    await platform.exportFile(
+      `${base}.annotations.json`,
+      JSON.stringify(exportAnnotations(content, fileName), null, 2),
+      'application/json'
+    )
+    flash('Annotations saved. Load them onto any copy with File > Load annotations…')
+  }, [content, fileName, flash])
+
   const handleAction = useCallback(
     async (action: string, payload?: unknown) => {
       switch (action) {
@@ -700,6 +718,57 @@ export default function App(): React.JSX.Element {
           const base = fileName.replace(/\.[^.]+$/, '')
           await platform.exportFile(`${base}-clean.md`, removeAllAnnotations(content), 'text/markdown')
           flash('Clean Markdown downloaded.')
+          // Offer to keep the annotations, ready for File > Load annotations….
+          if (
+            annotations.length &&
+            window.confirm(
+              `Save this document's ${annotations.length} annotation${annotations.length === 1 ? '' : 's'} in a separate file?\n\n` +
+                'An annotations file (.annotations.json) can be loaded back onto the clean copy, or any copy of this ' +
+                'document, with File > Load annotations…, and they land on the same words.'
+            )
+          ) {
+            await saveAnnotationsFile()
+          }
+          return
+        }
+        case 'file:export:annotations':
+          if (!annotations.length) {
+            flash('This document has no annotations to export.')
+            return
+          }
+          await saveAnnotationsFile()
+          return
+        case 'file:export:annotationSummary': {
+          if (!annotations.length) {
+            flash('This document has no annotations to summarise.')
+            return
+          }
+          const base2 = fileName.replace(/\.[^.]+$/, '')
+          await platform.exportFile(`${base2} - annotations.md`, annotationSummary(exportAnnotations(content, fileName)), 'text/markdown')
+          flash('Annotation summary downloaded.')
+          return
+        }
+        case 'file:importAnnotations': {
+          let picked: { name: string; content: string } | null = null
+          try {
+            picked = await platform.pickTextFile('.json,application/json')
+          } catch (err) {
+            flash(String((err as Error).message ?? err))
+            return
+          }
+          if (!picked) return
+          let file
+          try {
+            file = parseAnnotationsFile(picked.content)
+          } catch (err) {
+            flash(String((err as Error).message ?? err))
+            return
+          }
+          const r = importAnnotations(content, file)
+          if (r.placed) commitContent(r.source, `Load annotations (${r.placed})`)
+          const { summary, detail } = describeImport(r, picked.name)
+          if (detail) window.alert(`${summary}\n\n${detail}`)
+          else flash(summary)
           return
         }
         case 'file:print':
@@ -951,6 +1020,7 @@ export default function App(): React.JSX.Element {
       activeId,
       annotate,
       annotations.length,
+      saveAnnotationsFile,
       buildStandalone,
       commitContent,
       content,
