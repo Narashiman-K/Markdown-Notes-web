@@ -38,6 +38,9 @@ interface Props {
   /** Scanned PDFs: keep each page's picture beside its text. Remembered. */
   keepPageImages: boolean
   onKeepPageImagesChange: (keep: boolean) => void
+  /** Text PDFs: take their pictures out too. Remembered; on by default. */
+  pdfImages: boolean
+  onPdfImagesChange: (on: boolean) => void
 }
 
 const GEMINI_HELP = {
@@ -222,6 +225,7 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
         ocrMode,
         ocrLanguages: props.ocrLanguages,
         keepPageImages: props.keepPageImages,
+        pdfImages: props.pdfImages,
         onProgress: (message) => setProgress(`${item.name}: ${message}`),
         cloudOcr: (b, mimeType) => platform.visionOcr(b, mimeType),
         transcribe: (b) => platform.transcribeAudio(b, (m) => setProgress(`${item.name}: ${m}`))
@@ -345,6 +349,18 @@ export default function ConvertDialog(props: Props): React.JSX.Element {
               </div>
             )}
 
+            {hasPdfs && (
+              <label className="checkline keep-pages">
+                <input
+                  type="checkbox"
+                  checked={props.pdfImages}
+                  onChange={(e) => props.onPdfImagesChange(e.target.checked)}
+                />
+                <span className="small">
+                  <strong>Include pictures</strong> from PDFs with text, each placed where it sits on the page.
+                </span>
+              </label>
+            )}
             {hasPdfs && (
               <label className="checkline keep-pages">
                 <input

@@ -132,6 +132,11 @@ export default function App(): React.JSX.Element {
   // not have to tick Kannada every time.
   const [ocrLanguages, setOcrLanguages] = useState<string[]>(['eng'])
   const [keepPageImages, setKeepPageImages] = useState(false)
+  const [pdfImages, setPdfImages] = useState(true)
+  const changePdfImages = useCallback((on: boolean) => {
+    setPdfImages(on)
+    void platform.setSettings({ pdfImages: on })
+  }, [])
   const changeKeepPageImages = useCallback((keep: boolean) => {
     setKeepPageImages(keep)
     void platform.setSettings({ keepPageImages: keep })
@@ -219,6 +224,7 @@ export default function App(): React.JSX.Element {
         setBlockTints(s.blockTints ?? [...DEFAULT_BLOCK_TINTS])
         setOcrLanguages(normaliseOcrLanguages(s.ocrLanguages))
         if (typeof s.autosave === 'boolean') setAutosave(s.autosave)
+        if (typeof s.pdfImages === 'boolean') setPdfImages(s.pdfImages)
         setKeepPageImages(s.keepPageImages === true)
         if (s.reader) setReader({ ...DEFAULT_READER, ...s.reader })
       })
@@ -1551,6 +1557,8 @@ export default function App(): React.JSX.Element {
           onOcrLanguagesChange={changeOcrLanguages}
           keepPageImages={keepPageImages}
           onKeepPageImagesChange={changeKeepPageImages}
+          pdfImages={pdfImages}
+          onPdfImagesChange={changePdfImages}
           initialFiles={convertSeed}
           onClose={() => setConvertSeed(null)}
           onToast={flash}

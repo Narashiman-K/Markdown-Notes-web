@@ -98,6 +98,8 @@ export interface Settings {
   keepPageImages: boolean
   /** Save every 30 s while there are changes: back to the file, or into the document library. */
   autosave: boolean
+  /** Text PDFs: take their pictures out too. */
+  pdfImages: boolean
 }
 
 export interface Capabilities {

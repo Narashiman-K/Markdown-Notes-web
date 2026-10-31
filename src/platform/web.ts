@@ -43,7 +43,8 @@ const DEFAULT_SETTINGS: Settings = {
   reader: { ...DEFAULT_READER },
   ocrLanguages: ['eng'],
   keepPageImages: false,
-  autosave: true
+  autosave: true,
+  pdfImages: true
 }
 
 const FALLBACK_MODELS: Record<ProviderId, string[]> = {
