@@ -45,7 +45,8 @@ import {
   listAnnotations,
   removeAnnotation,
   removeAllAnnotations,
-  updateNote
+  updateNote,
+  repairPictures
 } from './lib/annotations'
 import { wrapSelection, prefixLines, insertBlock, TABLE_SNIPPET, toFileUrl } from './lib/editing'
 import { DEFAULT_BLOCK_TINTS, type BlockKind } from './lib/blockTints'
@@ -472,14 +473,20 @@ export default function App(): React.JSX.Element {
 
   const loadDocument = useCallback((path: string | null, text: string) => {
     setAutoSavedAt(null)
-    setContent(text)
+    // A picture damaged by an earlier highlight (see repairPictures) is
+    // mended on opening; the mended text counts as unsaved until saved.
+    const mended = repairPictures(text)
+    setContent(mended.source)
     setFilePath(path)
-    setDirty(false)
+    setDirty(mended.repaired > 0)
+    if (mended.repaired) {
+      flash(`Repaired ${mended.repaired} picture(s) damaged by an earlier highlight. Save to keep the repair.`)
+    }
     setMode('view')
     setActiveId(null)
     setHistory(EMPTY_HISTORY)
     setFileName(path ? basename(path) : 'Untitled')
-  }, [])
+  }, [flash])
 
   /* ------------------------------------------------------------ file ops */
 
