@@ -83,6 +83,8 @@ npm run build      # production build to dist/
 
 ### Using local AI in a browser
 
+Step-by-step guide for users, including which model to choose: [LOCAL-AI-OLLAMA.md](LOCAL-AI-OLLAMA.md).
+
 Ollama refuses requests from web origins unless told otherwise:
 
 ```powershell
