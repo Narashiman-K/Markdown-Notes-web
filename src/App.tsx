@@ -55,7 +55,7 @@ import LivePreview, { type PreviewFormat } from './components/LivePreview'
 import ReaderControls from './components/ReaderControls'
 import CompareView, { type CompareSource } from './components/CompareView'
 import DictationPanel from './components/DictationPanel'
-import { DEFAULT_DICTATION, MODEL_IDS, type DictationSettings } from './lib/speech/dictation'
+import { DEFAULT_DICTATION, type DictationSettings } from './lib/speech/dictation'
 import { joinText, type DictationAction } from './lib/speech/commands'
 import { startTabLink, otherTabs, tabText, setTabText } from './lib/tabLink'
 import { convertToMarkdown as convertForCompare } from './lib/convert'
@@ -1618,16 +1618,6 @@ export default function App(): React.JSX.Element {
           settings={dictation}
           host={DICTATION_HOST}
           toggleSignal={dictationToggle}
-          modelCached={async (model) => {
-            // transformers.js keeps downloads in this cache, keyed by URL.
-            try {
-              const cache = await caches.open('transformers-cache')
-              const keys = await cache.keys()
-              return keys.some((r) => r.url.includes(MODEL_IDS[model]) && r.url.includes('.onnx'))
-            } catch {
-              return null
-            }
-          }}
           onSettings={(next) => {
             setDictation(next)
             void platform.setSettings({ dictation: next })
