@@ -54,6 +54,9 @@ import { linkScrollers, previewScrollTarget, type ScrollSyncTarget } from './lib
 import LivePreview, { type PreviewFormat } from './components/LivePreview'
 import ReaderControls from './components/ReaderControls'
 import CompareView, { type CompareSource } from './components/CompareView'
+import DictationPanel from './components/DictationPanel'
+import { DEFAULT_DICTATION, MODEL_IDS, type DictationSettings } from './lib/speech/dictation'
+import { joinText, type DictationAction } from './lib/speech/commands'
 import { startTabLink, otherTabs, tabText, setTabText } from './lib/tabLink'
 import { convertToMarkdown as convertForCompare } from './lib/convert'
 import {
@@ -94,6 +97,9 @@ type Theme = 'light' | 'dark' | 'system'
 
 /** How often AutoSave runs while there are unsaved changes. */
 const AUTOSAVE_MS = 30_000
+
+/** Where dictation's speech models come from (see lib/speech/dictation.ts). */
+const DICTATION_HOST = { useBrowserCache: true }
 
 export default function App(): React.JSX.Element {
   const [content, setContent] = useState(WELCOME)
@@ -176,6 +182,9 @@ export default function App(): React.JSX.Element {
   const [convertSeed, setConvertSeed] = useState<File[] | null>(null)
   const [mergeOpen, setMergeOpen] = useState(false)
   const [compareOpen, setCompareOpen] = useState(false)
+  const [dictationOpen, setDictationOpen] = useState(false)
+  const [dictationToggle, setDictationToggle] = useState(0)
+  const [dictation, setDictation] = useState<DictationSettings>(DEFAULT_DICTATION)
   const [openDoc, setOpenDoc] = useState<OpenDocument | null>(null)
   const [showLibrary, setShowLibrary] = useState(false)
   const [appDragging, setAppDragging] = useState(false)
@@ -230,6 +239,10 @@ export default function App(): React.JSX.Element {
         setBlockTints(s.blockTints ?? [...DEFAULT_BLOCK_TINTS])
         setOcrLanguages(normaliseOcrLanguages(s.ocrLanguages))
         if (typeof s.autosave === 'boolean') setAutosave(s.autosave)
+        if (s?.dictation && typeof s.dictation === 'object') {
+          const d = s.dictation as Partial<DictationSettings>
+          setDictation({ ...DEFAULT_DICTATION, ...d, model: d.model === 'small' ? 'small' : 'base' })
+        }
         if (typeof s.pdfImages === 'boolean') setPdfImages(s.pdfImages)
         setKeepPageImages(s.keepPageImages === true)
         if (s.reader) setReader({ ...DEFAULT_READER, ...s.reader })
@@ -438,6 +451,19 @@ export default function App(): React.JSX.Element {
     }
     return list
   }, [openDoc, ocrLanguages, keepPageImages])
+
+  /** Dictated text goes in at the editor's cursor, joined to what precedes it. */
+  const applyDictation = useCallback((actions: DictationAction[]) => {
+    const editor = editorRef.current
+    if (!editor) return
+    for (const a of actions) {
+      if (a.kind === 'undo') editor.undo()
+      else if (a.kind === 'text') {
+        const at = editor.getSelection().from
+        editor.insertText(joinText(editor.getValue().slice(0, at), a.text))
+      }
+    }
+  }, [])
 
   const doUndo = useCallback(() => {
     // In edit mode the source editor owns undo, so keystroke-level history
@@ -799,6 +825,12 @@ export default function App(): React.JSX.Element {
           return
         case 'file:compare':
           setCompareOpen(true)
+          return
+        case 'edit:dictate':
+          // Dictation types at the editor's cursor, so it needs the editor.
+          setMode('edit')
+          if (dictationOpen) setDictationToggle((n) => n + 1)
+          else setDictationOpen(true)
           return
         case 'ai:toggle':
           setAiOpen((v) => !v)
@@ -1255,6 +1287,7 @@ export default function App(): React.JSX.Element {
         '0': 'view:zoom:reset',
         m: shift ? 'convert:open' : '',
         a: shift ? 'ai:toggle' : '',
+        d: shift ? 'edit:dictate' : '',
         v: shift ? 'view:mode:view' : '',
         o_shift: 'view:sidebar:outline',
         c: shift ? 'view:sidebar:comments' : ''
@@ -1643,6 +1676,30 @@ export default function App(): React.JSX.Element {
             setPendingDiff(null)
             flash(`${pendingDiff.label} applied. Ctrl+Z to undo.`)
           }}
+        />
+      )}
+
+      {dictationOpen && (
+        <DictationPanel
+          settings={dictation}
+          host={DICTATION_HOST}
+          toggleSignal={dictationToggle}
+          modelCached={async (model) => {
+            // transformers.js keeps downloads in this cache, keyed by URL.
+            try {
+              const cache = await caches.open('transformers-cache')
+              const keys = await cache.keys()
+              return keys.some((r) => r.url.includes(MODEL_IDS[model]) && r.url.includes('.onnx'))
+            } catch {
+              return null
+            }
+          }}
+          onSettings={(next) => {
+            setDictation(next)
+            void platform.setSettings({ dictation: next })
+          }}
+          onActions={applyDictation}
+          onClose={() => setDictationOpen(false)}
         />
       )}
 

@@ -20,6 +20,9 @@ const { version } = JSON.parse(readFileSync(new URL('./package.json', import.met
 
 export default defineConfig({
   define: { __APP_VERSION__: JSON.stringify(version) },
+  // ES-module workers: the speech worker loads the ONNX runtime with a
+  // dynamic import, which classic (iife) workers cannot do.
+  worker: { format: 'es' },
   plugins: [
     react(),
     VitePWA({
@@ -54,7 +57,7 @@ export default defineConfig({
         // touch offline OCR. Precaching them would charge every visitor that
         // download on first load, so they are excluded here and cached at
         // runtime instead, the first time OCR actually runs.
-        globIgnores: ['**/tesseract/**'],
+        globIgnores: ['**/tesseract/**', '**/ort/**', '**/assets/ort-wasm-*'],
         runtimeCaching: [
           {
             urlPattern: /\/tesseract\/.*/,

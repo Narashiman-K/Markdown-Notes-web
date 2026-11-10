@@ -49,6 +49,7 @@
     "xlsx": "file:vendor/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@huggingface/transformers": "^4.3.2",
     "@types/jsdom": "^30.0.0",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^26.2.0",

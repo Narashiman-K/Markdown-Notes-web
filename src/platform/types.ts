@@ -100,6 +100,8 @@ export interface Settings {
   autosave: boolean
   /** Text PDFs: take their pictures out too. */
   pdfImages: boolean
+  /** Dictation: model size, language, translate, voice commands. */
+  dictation?: { model: 'base' | 'small'; language: string; translate: boolean; commands: boolean }
 }
 
 export interface Capabilities {

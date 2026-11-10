@@ -62,6 +62,7 @@ const MENUS: Menu[] = [
       { label: 'Select all', action: 'edit:selectAll', accelerator: 'Ctrl+A' },
       { separator: true, label: '' },
       { label: 'Find…', action: 'edit:find', accelerator: 'Ctrl+F' },
+      { label: 'Dictation (voice typing)…', action: 'edit:dictate', accelerator: 'Ctrl+Shift+D' },
       { separator: true, label: '' },
       { label: 'Remove original page pictures', action: 'edit:removeScans' }
     ]

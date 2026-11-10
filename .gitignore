@@ -20,3 +20,4 @@ Converted-Files/
 backup_*/
 # Staged from node_modules by scripts/tesseract-assets.mjs on every build.
 public/tesseract/
+public/ort/
