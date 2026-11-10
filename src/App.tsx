@@ -56,7 +56,7 @@ import ReaderControls from './components/ReaderControls'
 import CompareView, { type CompareSource } from './components/CompareView'
 import DictationPanel from './components/DictationPanel'
 import { DEFAULT_DICTATION, type DictationSettings } from './lib/speech/dictation'
-import { joinText, type DictationAction } from './lib/speech/commands'
+import { joinText, DICTATION_LANGUAGES, type DictationAction } from './lib/speech/commands'
 import { startTabLink, otherTabs, tabText, setTabText } from './lib/tabLink'
 import { convertToMarkdown as convertForCompare } from './lib/convert'
 import {
@@ -99,7 +99,30 @@ type Theme = 'light' | 'dark' | 'system'
 const AUTOSAVE_MS = 30_000
 
 /** Where dictation's speech models come from (see lib/speech/dictation.ts). */
-const DICTATION_HOST = { useBrowserCache: true }
+const DICTATION_HOST = {
+  useBrowserCache: true,
+  /**
+   * Dictated Indian-language text, translated to English by the AI chosen in
+   * the AI panel (Ollama: free, offline, nothing leaves the PC).
+   */
+  translate: async (text: string, language: string): Promise<string> => {
+    const name = DICTATION_LANGUAGES.find(([c]) => c === language)?.[1] ?? language
+    const s = await platform.getSettings()
+    const provider = (s?.aiProvider ?? 'ollama') as ProviderId
+    let model: string = s?.aiModel ?? ''
+    if (!model) model = (await platform.aiModels(provider))?.models?.[0] ?? ''
+    const r = await platform.aiChat({
+      provider,
+      model,
+      system: `Translate the user's ${name} text into natural, fluent English. It is dictated speech, so fix obvious recognition slips from context. Reply with the English translation only: no notes, no quotation marks, no original text.`,
+      messages: [{ role: 'user', content: text }],
+      temperature: 0,
+      maxTokens: 600
+    })
+    if (!r?.ok) throw new Error(r?.error ?? 'The AI did not answer.')
+    return String(r.text ?? '').trim()
+  }
+}
 
 export default function App(): React.JSX.Element {
   const [content, setContent] = useState(WELCOME)
@@ -826,6 +849,14 @@ export default function App(): React.JSX.Element {
         case 'file:compare':
           setCompareOpen(true)
           return
+        case 'edit:dictateBar':
+          // The toolbar button opens and closes the bar.
+          if (dictationOpen) setDictationOpen(false)
+          else {
+            setMode('edit')
+            setDictationOpen(true)
+          }
+          return
         case 'edit:dictate':
           // Dictation types at the editor's cursor, so it needs the editor.
           setMode('edit')
@@ -1521,6 +1552,7 @@ export default function App(): React.JSX.Element {
         fileName={fileName}
         sidebar={sidebar}
         aiOpen={aiOpen}
+        dictationOpen={dictationOpen}
         scans={docHasScans ? (showScans ? 'shown' : 'hidden') : 'none'}
         onAction={(a) => void actionRef.current(a)}
       />
