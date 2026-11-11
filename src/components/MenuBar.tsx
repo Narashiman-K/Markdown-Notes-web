@@ -73,6 +73,7 @@ const MENUS: Menu[] = [
       { label: 'View mode', action: 'view:mode:view', accelerator: 'Ctrl+Shift+V' },
       { label: 'Edit mode', action: 'view:mode:edit', accelerator: 'Ctrl+E' },
       { label: 'Reader mode', action: 'view:reader', accelerator: 'F9' },
+      { label: 'Read aloud', action: 'view:readAloud', accelerator: 'Ctrl+Shift+Space' },
       { label: 'Page view', action: 'view:pages' },
       { label: 'Original page pictures', action: 'view:scans' },
       { separator: true, label: '' },

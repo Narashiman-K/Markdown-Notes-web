@@ -55,6 +55,8 @@ import LivePreview, { type PreviewFormat } from './components/LivePreview'
 import ReaderControls from './components/ReaderControls'
 import CompareView, { type CompareSource } from './components/CompareView'
 import DictationPanel from './components/DictationPanel'
+import ReadAloudPanel from './components/ReadAloudPanel'
+import { DEFAULT_READ, type ReadOptions } from './lib/speech/readAloud'
 import { DEFAULT_DICTATION, type DictationSettings } from './lib/speech/dictation'
 import { joinText, DICTATION_LANGUAGES, type DictationAction } from './lib/speech/commands'
 import { startTabLink, otherTabs, tabText, setTabText } from './lib/tabLink'
@@ -206,6 +208,9 @@ export default function App(): React.JSX.Element {
   const [mergeOpen, setMergeOpen] = useState(false)
   const [compareOpen, setCompareOpen] = useState(false)
   const [dictationOpen, setDictationOpen] = useState(false)
+  const [readOpen, setReadOpen] = useState(false)
+  const [readToggle, setReadToggle] = useState(0)
+  const [readOptions, setReadOptions] = useState<ReadOptions>(DEFAULT_READ)
   const [dictationToggle, setDictationToggle] = useState(0)
   const [dictation, setDictation] = useState<DictationSettings>(DEFAULT_DICTATION)
   const [openDoc, setOpenDoc] = useState<OpenDocument | null>(null)
@@ -266,6 +271,7 @@ export default function App(): React.JSX.Element {
           const d = s.dictation as Partial<DictationSettings>
           setDictation({ ...DEFAULT_DICTATION, ...d, model: d.model === 'small' ? 'small' : 'base' })
         }
+        if (s?.readAloud && typeof s.readAloud === 'object') setReadOptions({ ...DEFAULT_READ, ...(s.readAloud as Partial<ReadOptions>) })
         if (typeof s.pdfImages === 'boolean') setPdfImages(s.pdfImages)
         setKeepPageImages(s.keepPageImages === true)
         if (s.reader) setReader({ ...DEFAULT_READER, ...s.reader })
@@ -849,6 +855,19 @@ export default function App(): React.JSX.Element {
         case 'file:compare':
           setCompareOpen(true)
           return
+        case 'view:readAloud':
+          // Reads the rendered page, so it needs View (or Reader) mode.
+          if (readOpen) setReadOpen(false)
+          else {
+            setMode('view')
+            setReadOpen(true)
+          }
+          return
+        case 'view:readAloud:play':
+          setMode('view')
+          if (readOpen) setReadToggle((n) => n + 1)
+          else setReadOpen(true)
+          return
         case 'edit:dictateBar':
           // The toolbar button opens and closes the bar.
           if (dictationOpen) setDictationOpen(false)
@@ -1319,6 +1338,7 @@ export default function App(): React.JSX.Element {
         m: shift ? 'convert:open' : '',
         a: shift ? 'ai:toggle' : '',
         d: shift ? 'edit:dictate' : '',
+        ' ': shift ? 'view:readAloud:play' : '',
         v: shift ? 'view:mode:view' : '',
         o_shift: 'view:sidebar:outline',
         c: shift ? 'view:sidebar:comments' : ''
@@ -1553,6 +1573,7 @@ export default function App(): React.JSX.Element {
         sidebar={sidebar}
         aiOpen={aiOpen}
         dictationOpen={dictationOpen}
+        readOpen={readOpen}
         scans={docHasScans ? (showScans ? 'shown' : 'hidden') : 'none'}
         onAction={(a) => void actionRef.current(a)}
       />
@@ -1644,6 +1665,18 @@ export default function App(): React.JSX.Element {
           />
         )}
       </main>
+
+      {readOpen && (
+        <ReadAloudPanel
+          options={readOptions}
+          toggleSignal={readToggle}
+          onOptions={(next) => {
+            setReadOptions(next)
+            void platform.setSettings({ readAloud: next as unknown as Record<string, unknown> })
+          }}
+          onClose={() => setReadOpen(false)}
+        />
+      )}
 
       {dictationOpen && (
         <DictationPanel

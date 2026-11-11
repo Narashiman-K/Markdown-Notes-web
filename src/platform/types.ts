@@ -102,6 +102,8 @@ export interface Settings {
   pdfImages: boolean
   /** Dictation: model size, language, translate, voice commands. */
   dictation?: { model: 'base' | 'small'; language: string; translate: boolean; commands: boolean }
+  /** Read aloud: style, speed, pitch, voice and the rest (see lib/speech/readAloud.ts). */
+  readAloud?: Record<string, unknown>
 }
 
 export interface Capabilities {
