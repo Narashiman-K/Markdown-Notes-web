@@ -108,6 +108,7 @@ const MENUS: Menu[] = [
       { label: 'Link…', action: 'insert:link', accelerator: 'Ctrl+K' },
       { label: 'Image…', action: 'insert:image' },
       { label: 'Table', action: 'insert:table' },
+      { label: 'Table of contents', action: 'insert:toc' },
       { label: 'Code block', action: 'insert:codeblock' },
       { label: 'Horizontal rule', action: 'insert:hr' }
     ]
