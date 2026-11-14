@@ -43,6 +43,7 @@ import {
 } from './lib/history'
 import { extractHeadings, documentStats, renderMarkdown, standaloneHtml } from './lib/markdown'
 import { readPageSize, hasScans, removeScans } from './lib/pages'
+import { pickAudiobook, rememberedAudiobook, forgetAudiobook, type WebAudiobook } from './platform/audiobooks'
 import { tocBlock, refreshToc, hasToc, hasOldPageHeadings, upgradeOldPages } from './lib/toc'
 import {
   applyAnnotation,
@@ -214,6 +215,8 @@ export default function App(): React.JSX.Element {
   const [dictationOpen, setDictationOpen] = useState(false)
   const [readOpen, setReadOpen] = useState(false)
   const [mindOpen, setMindOpen] = useState(false)
+  // The reader's own audiobook for this document (linked with the file picker).
+  const [audiobook, setAudiobook] = useState<WebAudiobook | null>(null)
   // The chapter map open in it (null: the book overview), and whether the
   // reader left it to look at the document (then a button leads back).
   const [mindFocus, setMindFocus] = useState<string | null>(null)
@@ -555,6 +558,17 @@ export default function App(): React.JSX.Element {
     if (fresh !== content) setContent(fresh)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
+
+  // A document's remembered audiobook (Chrome and Edge remember picked files).
+  const audioKey = openDoc?.id ?? fileName
+  useEffect(() => {
+    setAudiobook(null)
+    let live = true
+    void rememberedAudiobook(audioKey).then((b) => live && setAudiobook(b))
+    return () => {
+      live = false
+    }
+  }, [audioKey])
 
   const loadDocument = useCallback((path: string | null, text: string) => {
     setAutoSavedAt(null)
@@ -1881,6 +1895,20 @@ export default function App(): React.JSX.Element {
             void platform.setSettings({ readAloud: next as unknown as Record<string, unknown> })
           }}
           onClose={() => setReadOpen(false)}
+          audiobook={audiobook}
+          onLinkAudiobook={async () => {
+            // A remembered book first (one click allows it again), else the picker.
+            const again = audiobook && !audiobook.url ? await rememberedAudiobook(audioKey, true) : null
+            const b = again?.url ? again : await pickAudiobook(audioKey)
+            if (b) {
+              setAudiobook(b)
+              if (!again) flash(`Linked ${b.name}${b.sidecar ? '' : ' (pick its .b2a.json timing file too, for highlighting)'}.`)
+            }
+          }}
+          onUnlinkAudiobook={async () => {
+            await forgetAudiobook(audioKey)
+            setAudiobook(null)
+          }}
         />
       )}
 
