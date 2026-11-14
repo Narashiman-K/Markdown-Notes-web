@@ -214,6 +214,10 @@ export default function App(): React.JSX.Element {
   const [dictationOpen, setDictationOpen] = useState(false)
   const [readOpen, setReadOpen] = useState(false)
   const [mindOpen, setMindOpen] = useState(false)
+  // The chapter map open in it (null: the book overview), and whether the
+  // reader left it to look at the document (then a button leads back).
+  const [mindFocus, setMindFocus] = useState<string | null>(null)
+  const [mindBack, setMindBack] = useState(false)
   // The table editor: picking a size for a new table, or editing one.
   const [tableDialog, setTableDialog] = useState<
     | { kind: 'size'; from: number; to: number }
@@ -914,7 +918,8 @@ export default function App(): React.JSX.Element {
           setCompareOpen(true)
           return
         case 'view:mindmap':
-          setMindOpen(true)
+          setMindBack(false)
+          setMindOpen((o) => !o)
           return
         case 'view:readAloud':
           // Reads the rendered page, so it needs View (or Reader) mode.
@@ -1341,6 +1346,17 @@ export default function App(): React.JSX.Element {
 
   barsOpen.current = { read: readOpen, dictation: dictationOpen }
   const actionRef = useRef(handleAction)
+  // Alt+M opens and closes the mind map.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault()
+        void actionRef.current('view:mindmap')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   actionRef.current = handleAction
 
   /* ------------------------------------------------------------- effects */
@@ -1651,6 +1667,7 @@ export default function App(): React.JSX.Element {
         aiOpen={aiOpen}
         dictationOpen={dictationOpen}
         readOpen={readOpen}
+        mindOpen={mindOpen}
         scans={docHasScans ? (showScans ? 'shown' : 'hidden') : 'none'}
         onAction={(a) => void actionRef.current(a)}
       />
@@ -1737,6 +1754,89 @@ export default function App(): React.JSX.Element {
                 }}
                 onTableChange={(line, change) => editTableInEditor(line, change)}
               />
+            </div>
+          )}
+          {mindOpen && (
+            <MindMapView
+              key={fileName}
+              source={content}
+              name={fileName}
+              dark={dark}
+              focus={mindFocus}
+              onFocus={setMindFocus}
+              onClose={() => {
+                setMindOpen(false)
+                setMindBack(false)
+              }}
+              onShowInDocument={({ slug, line }) => {
+                setMindOpen(false)
+                setMindBack(true)
+                if (mode === 'edit' && editorRef.current && line >= 0) {
+                  editorRef.current.gotoLine(line + 1)
+                  return
+                }
+                if (slug) window.setTimeout(() => previewRef.current?.scrollToSlug(slug), 30)
+              }}
+              onInsert={(mermaid) => {
+                setMindOpen(false)
+                const block = '```mermaid\n' + mermaid + '\n```'
+                if (mode === 'edit' && editorRef.current) {
+                  const ed = editorRef.current
+                  const { from, to } = ed.getSelection()
+                  ed.applyEdit(insertBlock(ed.getValue(), from, to, block))
+                } else {
+                  const lines = content.split('\n')
+                  const title = lines.findIndex((l) => /^#\s/.test(l))
+                  lines.splice(title + 1, 0, '', block)
+                  commitContent(lines.join('\n'), 'Insert mind map')
+                }
+                flash('Mind map inserted as a Mermaid diagram (it draws on GitHub, in Obsidian and other Mermaid-aware apps).')
+              }}
+              ai={{
+                status: async () => {
+                  const s = await platform.getSettings()
+                  const provider = s?.aiProvider ?? 'ollama'
+                  return platform.aiStatus(provider as ProviderId)
+                },
+                ask: async (system, user) => {
+                  const s = await platform.getSettings()
+                  const provider = (s?.aiProvider ?? 'ollama') as ProviderId
+                  let model: string = s?.aiModel ?? ''
+                  if (!model) model = (await platform.aiModels(provider))?.models?.[0] ?? ''
+                  return platform.aiChat({ provider, model, system, messages: [{ role: 'user', content: user }], temperature: 0.2, maxTokens: 1200 })
+                }
+              }}
+              saveImage={async (name, data) => {
+                await platform.exportFile(name, data, data.type)
+              }}
+              print={async (html) => {
+                await platform.print(html)
+              }}
+              loadState={async () => {
+                try {
+                  return localStorage.getItem(`mn-mindmap:${openDoc?.id ?? fileName}`)
+                } catch {
+                  return null
+                }
+              }}
+              saveState={async (json) => {
+                try {
+                  localStorage.setItem(`mn-mindmap:${openDoc?.id ?? fileName}`, json)
+                  return true
+                } catch {
+                  return false
+                }
+              }}
+            />
+          )}
+          {mindBack && !mindOpen && (
+            <div className="mm-back" data-mn-ignore>
+              <button className="primary" onClick={() => (setMindBack(false), setMindOpen(true))} title="Back to the mind map (Alt+M)">
+                ↩ Back to mind map
+              </button>
+              <button className="link" onClick={() => setMindBack(false)} title="Hide this button">
+                ✕
+              </button>
             </div>
           )}
         </section>
@@ -1952,59 +2052,6 @@ export default function App(): React.JSX.Element {
         />
       )}
 
-      {mindOpen && (
-        <MindMapView
-          source={content}
-          name={fileName}
-          dark={dark}
-          onClose={() => setMindOpen(false)}
-          onJump={({ slug, line }) => {
-            setMindOpen(false)
-            if (mode === 'edit' && editorRef.current && line >= 0) {
-              editorRef.current.gotoLine(line + 1)
-              return
-            }
-            setMode('view')
-            if (slug) window.setTimeout(() => previewRef.current?.scrollToSlug(slug), 30)
-          }}
-          onInsert={(mermaid) => {
-            setMindOpen(false)
-            const block = '```mermaid\n' + mermaid + '\n```'
-            if (mode === 'edit' && editorRef.current) {
-              const ed = editorRef.current
-              const { from, to } = ed.getSelection()
-              ed.applyEdit(insertBlock(ed.getValue(), from, to, block))
-            } else {
-              // After the title, so it opens the document.
-              const lines = content.split('\n')
-              const title = lines.findIndex((l) => /^#\s/.test(l))
-              lines.splice(title + 1, 0, '', block)
-              commitContent(lines.join('\n'), 'Insert mind map')
-            }
-            flash('Mind map inserted as a Mermaid diagram (it draws on GitHub, in Obsidian and other Mermaid-aware apps).')
-          }}
-          ai={{
-            status: async () => {
-              const s = await platform.getSettings()
-              const provider = s?.aiProvider ?? 'ollama'
-              return platform.aiStatus(provider as ProviderId)
-            },
-            ask: async (system, user) => {
-              const s = await platform.getSettings()
-              const provider = (s?.aiProvider ?? 'ollama') as ProviderId
-              let model: string = s?.aiModel ?? ''
-              if (!model) model = (await platform.aiModels(provider))?.models?.[0] ?? ''
-              return platform.aiChat({ provider, model, system, messages: [{ role: 'user', content: user }], temperature: 0.2, maxTokens: 1200 })
-            }
-          }}
-          saveImage={async (name, data) => {
-            await platform.exportFile(name, data, data.type)
-          }}
-          print={async (html) => {
-            await platform.print(html)
-          }}
-        />
-      )}
       {tableDialog?.kind === 'size' && (
         <TableSizePicker
           onCancel={() => setTableDialog(null)}
