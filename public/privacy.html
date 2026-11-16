@@ -6,7 +6,7 @@
     <title>Privacy Policy — Suprasūtā Markdown Notes</title>
     <meta
       name="description"
-      content="How Suprasūtā Markdown Notes handles your data: it does not collect any."
+      content="How Suprasūtā Markdown Notes handles your data: your documents never leave your device; only anonymous usage counts, which you can switch off."
     />
     <link rel="icon" href="/favicon.svg" />
     <style>
@@ -64,15 +64,18 @@
       <h1>Privacy Policy</h1>
       <p class="sub">
         Suprasūtā Markdown Notes — web application and Android app.<br />
-        Last updated 20 August 2026.
+        Last updated 16 November 2026.
       </p>
 
       <p class="lede">
-        <strong>This application does not collect your data.</strong> There is no
-        account, no sign-in, no analytics, no advertising and no tracking of any
-        kind. Your documents, your annotations and your settings stay on your own
-        device. Nothing is uploaded unless you deliberately switch on one of the
-        optional features described below, using an API key you supply yourself.
+        <strong>Your documents never leave your device.</strong> There is no
+        account, no sign-in, no advertising and no tracking across sites. Your
+        documents, annotations and settings stay on your own device. The only
+        thing the app sends by itself is <strong>anonymous usage counts</strong>
+        (which features are used, never what you write), and you can switch
+        that off in one click: Help → Send anonymous usage statistics.
+        Everything else is uploaded only when you deliberately use an optional
+        feature described below.
       </p>
 
       <h2>Who is responsible</h2>
@@ -174,14 +177,51 @@
         <a href="https://github.com/Narashiman-K/Markdown-Notes-web/tree/main/api">github.com/Narashiman-K/Markdown-Notes-web</a>.
       </p>
 
+      <h2>Anonymous usage statistics</h2>
+      <p>
+        To learn which features are worth improving, the app counts how it is
+        used. This is on by default and can be switched off at any time under
+        <strong>Help → Send anonymous usage statistics</strong>; when it is off,
+        nothing is sent.
+      </p>
+      <table>
+        <thead><tr><th>Sent</th><th>Never sent</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>That the app was opened; the app version; Windows app or web;
+              a rough screen size (small, medium or large); the interface
+              language; the names of commands used, such as “Save” or
+              “Mind map”.</td>
+            <td>Document text, file or folder names, notes and highlights, AI
+              questions or answers, API keys, your name, e-mail or IP address.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        The counts go to PostHog (posthog.com), hosted in the European Union,
+        under a project set to discard IP addresses. Each device is identified
+        only by a random number created on that device, not linked to any
+        account or person; clearing the app's data creates a new one. No
+        cookies are set and no PostHog script is loaded: the app sends the
+        counts itself. The legal basis is our legitimate interest in improving
+        the app, balanced by the data being anonymous and the off switch.
+      </p>
+
+      <h2>Model downloads</h2>
+      <p>
+        Read aloud and dictation run on your device. The first time you use
+        them, the app downloads their voice and speech models from Hugging Face
+        (huggingface.co). That download is an ordinary file request; nothing
+        you write or say is sent.
+      </p>
+
       <h2>Web server logs</h2>
       <p>
         The web version is hosted on Vercel. Like any web host, Vercel records
         standard technical request information — IP address, timestamp, the file
         requested and the browser's user-agent string — for delivery, security
         and abuse prevention. This is ordinary web-server logging, it is not
-        linked to any identity by us, and we do not use it for analytics or
-        profiling.
+        linked to any identity by us, and we do not use it for profiling.
       </p>
       <p>
         The Android app is served no pages from anywhere: it is installed on your

@@ -1,5 +1,6 @@
 import { platform } from '../platform'
 import { useEffect, useRef, useState } from 'react'
+import { analyticsAvailable, analyticsOn } from '../lib/analytics'
 import { PRIVACY_URL, REPO_URL, featureRequestUrl } from '../shared/brand'
 
 /**
@@ -33,6 +34,7 @@ const MENUS: Menu[] = [
       { separator: true, label: '' },
       { label: 'Save', action: 'file:save', accelerator: 'Ctrl+S' },
       { label: 'Save as…', action: 'file:saveAs', accelerator: 'Ctrl+Shift+S' },
+      { label: 'Version history…', action: 'file:versions' },
       { label: 'AutoSave every 30 seconds', action: 'file:autosave' },
       { separator: true, label: '' },
       { label: 'Export as HTML…', action: 'file:export:html' },
@@ -143,7 +145,10 @@ const MENUS: Menu[] = [
       { label: 'Explain selection', action: 'ai:quick:explain' },
       { label: 'Suggest annotations', action: 'ai:quick:annotate' },
       { separator: true, label: '' },
-      { label: 'Coming soon: documentation from a code project…', action: 'help:featureVote' }
+      { label: 'Distil this book…', action: 'ai:tool:distil' },
+      { label: 'Remove repeated content…', action: 'ai:tool:dedupe' },
+      { label: 'Website to documentation…', action: 'ai:tool:site' },
+      { label: 'Project folder to documentation…', action: 'ai:tool:project' }
     ]
   },
   {
@@ -156,6 +161,7 @@ const MENUS: Menu[] = [
       { label: 'Project on GitHub', href: REPO_URL },
       { label: 'Privacy policy', href: PRIVACY_URL },
       { separator: true, label: '' },
+      { label: 'Send anonymous usage statistics', action: 'help:analytics' },
       { label: 'About', action: 'help:about' }
     ]
   }
@@ -195,7 +201,8 @@ export default function MenuBar({ onAction, compact, pageView, scansShown, autos
   const tick = (item: MenuItem): string =>
     (item.action === 'view:pages' && pageView) ||
     (item.action === 'view:scans' && scansShown) ||
-    (item.action === 'file:autosave' && autosave)
+    (item.action === 'file:autosave' && autosave) ||
+    (item.action === 'help:analytics' && analyticsAvailable() && analyticsOn())
       ? '✓ '
       : ''
 
