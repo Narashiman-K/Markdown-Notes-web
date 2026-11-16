@@ -173,6 +173,20 @@ CodeMirror's history covers typing in the source editor only. Annotations
 applied in view mode and AI edits happen outside it, so a 120-entry
 document-level stack sits above the whole document.
 
+### Added in 1.3
+
+Shared with the Windows app (see its ARCHITECTURE.md §4 for the details): `speech/` (dictation and read aloud, models from Hugging Face), `speech/audiobook.ts` (an audiobook's timing matched to the page), `toc.ts`, `table.ts`, `mindmap.ts`, `flowchart.ts`, `study.ts` (Q&A cards, quiz, highlights as cards, tags, Anki/CSV), `mermaidView.ts`, `versions.ts`, `aiTools.ts`, `analytics.ts`.
+
+What differs in the browser:
+
+| Feature | In the web app |
+| --- | --- |
+| Audiobooks | Picked with the file picker; in Chrome and Edge the *handles* (not copies) are remembered in IndexedDB `mn-audiobooks`, and a click allows reading them again (`platform/audiobooks.ts`). |
+| Mind map state | `localStorage`, per document. |
+| Version history | IndexedDB `mn-versions` in this browser. |
+| Website to documentation | Not available: a web page may not read other sites, the CSP's `connect-src` keeps it so, and a relay that fetches any address for anyone would be open to abuse. The dialog says this and points to the Windows app. |
+| Project folder to documentation | `showDirectoryPicker` in Chrome and Edge, a "choose folder" input elsewhere (`platform/projectFiles.ts`); same skip rules and limits as Windows. |
+
 ---
 
 ## 5. Converters and offline OCR
@@ -224,6 +238,20 @@ but can never read the key material, and cannot copy it out of IndexedDB.
 
 It is a real improvement over plain text and it is not DPAPI. The UI says so
 rather than implying otherwise. Keep it that way.
+
+### Security review of the 1.3 additions (November 2026)
+
+- **Microphone:** asked for only when dictation starts; audio stays in the
+  page and is recognised in a worker. `Permissions-Policy` in `vercel.json`
+  limits it to this origin.
+- **Network:** `connect-src` adds only Hugging Face (model files) and
+  `eu.i.posthog.com` (anonymous usage counts) to the AI providers already
+  there. Model downloads carry nothing about the user.
+- **Usage statistics:** event and command names only, never arguments; no
+  PostHog script, no cookies; off switch in Help; nothing without a key.
+- **Audiobooks, folders, version history, mind map state:** all stay in this
+  browser (object URLs, IndexedDB, localStorage); nothing is uploaded.
+- **Mermaid:** bundled, lazy-loaded, `securityLevel: 'strict'`.
 
 ---
 

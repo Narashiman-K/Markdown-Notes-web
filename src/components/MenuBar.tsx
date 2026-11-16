@@ -1,6 +1,6 @@
 import { platform } from '../platform'
 import { useEffect, useRef, useState } from 'react'
-import { analyticsAvailable, analyticsOn } from '../lib/analytics'
+import { analyticsOn } from '../lib/analytics'
 import { PRIVACY_URL, REPO_URL, featureRequestUrl } from '../shared/brand'
 
 /**
@@ -112,6 +112,7 @@ const MENUS: Menu[] = [
       { label: 'Image…', action: 'insert:image' },
       { label: 'Table', action: 'insert:table' },
       { label: 'Table of contents', action: 'insert:toc' },
+      { label: 'Diagram (Mermaid)', action: 'insert:diagram' },
       { label: 'Code block', action: 'insert:codeblock' },
       { label: 'Horizontal rule', action: 'insert:hr' }
     ]
@@ -202,7 +203,7 @@ export default function MenuBar({ onAction, compact, pageView, scansShown, autos
     (item.action === 'view:pages' && pageView) ||
     (item.action === 'view:scans' && scansShown) ||
     (item.action === 'file:autosave' && autosave) ||
-    (item.action === 'help:analytics' && analyticsAvailable() && analyticsOn())
+    (item.action === 'help:analytics' && analyticsOn())
       ? '✓ '
       : ''
 
