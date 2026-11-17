@@ -1747,6 +1747,8 @@ export default function App(): React.JSX.Element {
           settings={reader}
           onChange={changeReader}
           onExit={() => setReaderOn(false)}
+          readOpen={readOpen}
+          onReadAloud={() => void actionRef.current('view:readAloud')}
         />
       )}
       <MenuBar onAction={(a) => void actionRef.current(a)} compact={platform.capabilities.touch} pageView={pageView} scansShown={docHasScans && showScans} autosave={autosave} />
