@@ -69,3 +69,25 @@ describe('Doc Editor blocks', () => {
     expect(added.startsWith('# Title\n\nNew text.\n\n<!-- toc -->')).toBe(true)
   })
 })
+
+describe('paragraph styles', () => {
+  it('turns a paragraph into a list, quote or heading and back', async () => {
+    const { restyle } = await import('../src/lib/docBlocks')
+    expect(restyle('Hello world', 'ul')).toBe('- Hello world')
+    expect(restyle('- Hello world', 'ul')).toBe('Hello world')
+    expect(restyle('Hello', 'ol')).toBe('1. Hello')
+    expect(restyle('Hello', 'quote')).toBe('> Hello')
+    expect(restyle('> Hello', 'quote')).toBe('Hello')
+    expect(restyle('- Hello', 'h2')).toBe('## Hello')
+    expect(restyle('## Hello', 'p')).toBe('Hello')
+  })
+  it('indents the list item with the caret', async () => {
+    const { restyle } = await import('../src/lib/docBlocks')
+    expect(restyle('- a\n- b\n- c', 'indent', 1)).toBe('- a\n  - b\n- c')
+    expect(restyle('- a\n  - b\n- c', 'outdent', 1)).toBe('- a\n- b\n- c')
+  })
+  it('writes strikethrough with two tildes', async () => {
+    const { blockToMarkdown } = await import('../src/lib/docBlocks')
+    expect(blockToMarkdown('<p><strike>Testing</strike> it</p>')).toBe('~~Testing~~ it')
+  })
+})
